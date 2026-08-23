@@ -117,8 +117,24 @@ Things that will bite you here:
   `vignette` option mitigates it; it does not fix it.
 - Keep ink coverage roughly 12–27% — `tools/poses.mjs` prints it per pose.
 
-Tuning knobs at the top of `mary.js`: `HOLD`, `FADE`, `FPS`, `FILL`, `RAMP`.
-Opacity is the `--mary-op` CSS custom property.
+**Scale and parallax.** Plates render larger than the viewport into a buffer of
+`bufRows` (> `rows`), and page scroll slides a `rows`-high window down it — so
+panning is index arithmetic on the cached char array, never a redraw. Two things
+follow from that and are easy to break:
+
+- `renderPose()` and `toChars()` work in **buffer** space (`bufRows`); `paint()`
+  works in **screen** space (`rows`) and adds `Math.round(panCur) * cols` to
+  reach the plate. The `noise` array is screen-sized on purpose, so a dissolve
+  sweeps the viewport rather than sliding with the parallax. Mixing the two
+  coordinate spaces gives out-of-bounds reads and a blank background.
+- `bufRows` is derived from `plateHeight()` across all images, floored at
+  `rows * (1 + TRAVEL)`. Do not hardcode it to `rows * BIG`: a portrait plate at
+  full viewport height is wider than a phone screen in character terms, so
+  narrow grids fall back to a width fit and would otherwise get no pan travel.
+
+Knobs at the top of `mary.js`: `BIG`, `TRAVEL`, `EASE`, `MAXW`, `HOLD`, `FADE`,
+`FPS`, `RAMP`. Opacity is the `--mary-op` CSS custom property. Parallax pins to
+centre under `prefers-reduced-motion`.
 
 Regenerating:
 

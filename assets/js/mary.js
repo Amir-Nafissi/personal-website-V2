@@ -25,13 +25,18 @@
   var HATCH = ['-', '\\', '|', '/'];
   var BURN = ['*', '+', '.', '·'];
 
-  var FILL = 0.96;         // share of the grid the plate fills
+  var BIG = 1.85;          // plate height as a multiple of the viewport
+  var MAXW = 1.0;          // ...but never wider than this share of the grid
+  var TRAVEL = 0.28;       // guaranteed pan range, as a share of viewport height
+  var EASE = 0.12;         // parallax follow rate, per painted frame
   var HOLD = 9000;         // ms per pose
   var FADE = 2200;         // ms crossfade
   var FPS = 24;
 
   var el, pre, cvs, ctx;
-  var cols = 0, rows = 0;
+  var cols = 0, rows = 0;  // viewport, in characters
+  var bufRows = 0;         // rendered plate height; bufRows - rows is the pan travel
+  var panTarget = 0, panCur = 0, panPainted = -1;
   var cellW = 8, cellH = 16;
   var images = [];         // decoded HTMLImageElements
   var poses = [];          // cached char arrays, parallel to images
@@ -46,39 +51,58 @@
   /* Rasterise a plate into the character grid                   */
   /* ---------------------------------------------------------- */
 
+  /* A character cell is taller than it is wide, so a plate of ratio w/h
+     needs w/h * cellH/cellW columns for every row to stay square. */
+  function plateRatio(img) {
+    return (img.naturalWidth / img.naturalHeight) * (cellH / cellW);
+  }
+
+  /* Blown up to BIG times the viewport, unless that would run off the
+     sides — on a tall narrow phone a portrait plate is width-bound long
+     before it is height-bound. */
+  function plateHeight(img) {
+    return Math.min(rows * BIG, (cols * MAXW) / plateRatio(img));
+  }
+
+  /* Each plate is rasterised once into a buffer taller than the viewport.
+     Scrolling slides a rows-high window down that buffer, which is pure
+     index arithmetic — no redraw, no resample, no getImageData per frame.
+
+     The buffer is tall enough for the largest plate, and never shorter
+     than the viewport plus TRAVEL, so there is always something to pan
+     even where the plate itself ends up smaller than the screen. */
   function renderPose(img) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, cols, rows);
+    ctx.fillRect(0, 0, cols, bufRows);
 
     // A character cell is taller than it is wide, so a plate of ratio
     // w/h needs w/h * cellH/cellW columns for every row to stay square.
-    var ratio = (img.naturalWidth / img.naturalHeight) * (cellH / cellW);
-    var h = Math.min(rows * FILL, (cols * FILL) / ratio);
-    var w = h * ratio;
+    var h = plateHeight(img);
+    var w = h * plateRatio(img);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, (cols - w) / 2, (rows - h) / 2, w, h);
+    ctx.drawImage(img, (cols - w) / 2, (bufRows - h) / 2, w, h);
 
-    var data = ctx.getImageData(0, 0, cols, rows).data;
-    var n = cols * rows;
+    var data = ctx.getImageData(0, 0, cols, bufRows).data;
+    var n = cols * bufRows;
     var L = new Float32Array(n);
     for (var i = 0; i < n; i++) L[i] = data[i * 4] / 255;
     return toChars(L);
   }
 
   function toChars(L) {
-    var n = cols * rows;
+    var n = cols * bufRows;
     var out = new Array(n);
     var last = RAMP.length - 1;
-    for (var y = 0; y < rows; y++) {
+    for (var y = 0; y < bufRows; y++) {
       for (var x = 0; x < cols; x++) {
         var i = y * cols + x;
         var l = L[i];
         if (l < 0.045) { out[i] = ' '; continue; }
 
         var gx = 0, gy = 0;
-        if (x > 0 && x < cols - 1 && y > 0 && y < rows - 1) {
+        if (x > 0 && x < cols - 1 && y > 0 && y < bufRows - 1) {
           var tl = L[i - cols - 1], t = L[i - cols], tr = L[i - cols + 1];
           var ll = L[i - 1], rr = L[i + 1];
           var bl = L[i + cols - 1], b = L[i + cols], br = L[i + cols + 1];
@@ -138,9 +162,14 @@
     var w = el.clientWidth, h = el.clientHeight;
     cols = Math.max(40, Math.min(260, Math.floor(w / cellW) + 1));
     rows = Math.max(24, Math.min(140, Math.floor(h / cellH) + 1));
-    cvs.width = cols; cvs.height = rows;
+    var tallest = 0;
+    images.forEach(function (img) { tallest = Math.max(tallest, plateHeight(img)); });
+    bufRows = Math.min(420, Math.max(Math.round(rows * (1 + TRAVEL)), Math.round(tallest)));
+    cvs.width = cols; cvs.height = bufRows;
     ctx = cvs.getContext('2d', { willReadFrequently: true });
 
+    // The dissolve pattern is keyed to the screen, not to the plate, so a
+    // transition sweeps the viewport rather than sliding with the parallax.
     noise = new Float32Array(cols * rows);
     for (var y = 0; y < rows; y++) {
       for (var x = 0; x < cols; x++) {
@@ -151,7 +180,19 @@
     }
     poses = images.map(renderPose);
     transT = 1;
+    readScroll();
+    panCur = panTarget;
+    panPainted = -1;
     paint(1);
+  }
+
+  /* Page scroll position drives which slice of the plate is on screen. */
+  function readScroll() {
+    var d = document.documentElement;
+    var max = d.scrollHeight - d.clientHeight;
+    var p = max > 8 ? Math.min(1, Math.max(0, d.scrollTop / max)) : 0;
+    if (reduced) p = 0.5;
+    panTarget = p * Math.max(0, bufRows - rows);
   }
 
   /* ---------------------------------------------------------- */
@@ -161,24 +202,27 @@
   function paint(t) {
     var A = poses[current], B = poses[nextIdx];
     if (!A || !B) return;
+    var off = Math.round(panCur) * cols;   // parallax, in whole character rows
     var lines = new Array(rows);
-    var p = 0;
+    var p = 0;                             // screen index, for the dissolve
     for (var y = 0; y < rows; y++) {
       var row = '';
       for (var x = 0; x < cols; x++, p++) {
+        var s = p + off;                   // plate index
         var th = noise[p];
         var ch;
-        if (t >= 1) ch = B[p];
-        else if (t <= 0) ch = A[p];
+        if (t >= 1) ch = B[s];
+        else if (t <= 0) ch = A[s];
         else if (Math.abs(th - t) < 0.045) {
-          var src = th < t ? B[p] : A[p];
+          var src = th < t ? B[s] : A[s];
           ch = src === ' ' ? ' ' : BURN[(p + (t * 97 | 0)) & 3];
-        } else ch = th < t ? B[p] : A[p];
+        } else ch = th < t ? B[s] : A[s];
         row += ch;
       }
       lines[y] = row;
     }
     pre.textContent = lines.join('\n');
+    panPainted = Math.round(panCur);
   }
 
   function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
@@ -190,10 +234,17 @@
     if (ts - lastFrame < 1000 / FPS) return;
     lastFrame = ts;
 
+    // ease the parallax towards the scroll position so flicks glide
+    // instead of snapping; it settles to exact once the delta is sub-cell
+    var d = panTarget - panCur;
+    if (Math.abs(d) > 0.01) panCur += d * EASE; else panCur = panTarget;
+
     if (transT < 1) {
       transT = Math.min(1, transT + (1000 / FPS) / FADE);
       paint(easeInOut(transT));
       if (transT >= 1) { current = nextIdx; lastSwap = ts; }
+    } else if (Math.round(panCur) !== panPainted) {
+      paint(1);
     } else if (ts - lastSwap > HOLD && !reduced) {
       advance();
     }
@@ -245,6 +296,7 @@
       clearTimeout(t);
       t = setTimeout(layout, 220);
     });
+    global.addEventListener('scroll', readScroll, { passive: true });
     document.addEventListener('visibilitychange', function () {
       running = !document.hidden;
       lastFrame = 0; lastSwap = 0;

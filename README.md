@@ -110,6 +110,32 @@ the character grid, then samples it twice: luminance picks a glyph from
 costs one string build per painted frame. The crossfade is a per-cell
 noise dissolve with a bright burn edge — 9s hold, 2.2s fade, 24fps.
 
+### Scale and scroll parallax
+
+Plates render at `BIG` times the viewport height — bigger than the
+screen — into a buffer taller than the viewport. Page scroll then slides
+a viewport-high window down that buffer, so the figure pans as you read.
+Because the buffer is a cached character array, panning is pure index
+arithmetic: no redraw, no resample, no `getImageData` per frame. The
+offset eases towards the scroll position and snaps to whole character
+rows, which gives the motion a stepped, mechanical quality that suits the
+grid better than sub-pixel smoothness would.
+
+The buffer is sized from the plates themselves. A portrait engraving at
+full viewport height is wider than a phone screen in character terms, so
+`plateHeight()` falls back to a width fit on narrow grids; the buffer is
+then padded to at least `1 + TRAVEL` viewport heights so there is always
+something to pan even when the plate ends up smaller than the screen.
+
+The dissolve pattern is keyed to screen position rather than to the
+plate, so a pose change sweeps the viewport instead of sliding with the
+parallax.
+
+Knobs at the top of `mary.js`: `BIG` (plate scale), `TRAVEL` (guaranteed
+pan range), `EASE` (follow rate), `MAXW`, `HOLD`, `FADE`, `FPS`, `RAMP`.
+Opacity is the `--mary-op` CSS custom property. Parallax is pinned to
+centre under `prefers-reduced-motion`.
+
 Two constraints worth knowing before you swap plates:
 
 - **Choose isolated figures on blank paper.** A plate with a fully worked
@@ -121,9 +147,6 @@ Two constraints worth knowing before you swap plates:
   tainted, so `getImageData()` would throw for anyone opening
   `index.html` straight off disk. Copies land in `assets/mary/` for
   reference; the inlined module is what the page uses.
-
-Tuning knobs at the top of `mary.js`: `HOLD`, `FADE`, `FPS`, `FILL`,
-`RAMP`. Opacity is the `--mary-op` CSS custom property.
 
 ### Swapping the background plates
 
