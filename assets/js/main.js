@@ -909,7 +909,7 @@
           say('sound: ' + (toggleSound() ? 'on' : 'off')); break;
         case 'mary': case 'bg':
           window.MaryBG.next();
-          say('background: pose ' + (window.MaryBG.index() + 1) + ' / ' + window.MaryBG.count()); break;
+          say(window.MaryBG.credit() || 'background: pose ' + (window.MaryBG.index() + 1)); break;
         case 'art': case 'gallery':
           go('gallery'); break;
         case 'contact': case 'mail':
@@ -1181,6 +1181,15 @@
     });
 
     $('#ftr-chars').textContent = '8,400+';
+
+    // keep the footer credit pointing at whichever plate is on screen
+    var plate = $('#ftr-plate');
+    if (plate) {
+      setInterval(function () {
+        var c = window.MaryBG.credit();
+        if (c && plate.textContent !== c) plate.textContent = c;
+      }, 1500);
+    }
 
     boot(armTypewriters);
   }

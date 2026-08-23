@@ -11,7 +11,7 @@
   --fg-deep:   #024d09;
   --accent:    #e0e0e0;   /* off-white */
   --mary:      #7fae7a;   /* desaturated green for the background art */
-  --mary-op:   0.175;
+  --mary-op:   0.20;
   --glow:      0 0 6px rgba(0,255,65,.35);
   --rule:      #0f3d16;
 
@@ -532,7 +532,7 @@ html[data-theme='amber'] .term { background: rgba(10,6,0,.78); }
    SMALL SCREENS
    ------------------------------------------------------------- */
 @media (max-width: 700px) {
-  :root { --mary-op: .13; }
+  :root { --mary-op: .15; }
   .hdr-top { gap: .4rem .8rem; padding-top: .4rem; }
   .hdr-brand { font-size: .9em; }
   .nav { margin-left: 0; width: 100%; order: 3; justify-content: space-between; font-size: .92em; }
@@ -543,3 +543,7 @@ html[data-theme='amber'] .term { background: rgba(10,6,0,.78); }
   .term-body { min-height: 16rem; }
   .proj-desc { min-height: 0; }
 }
+
+.ftr-credit { opacity: .55; max-width: 68ch; }
+.ftr-credit a { border-bottom: 1px solid var(--fg-deep); }
+.ftr-credit a:hover { color: var(--fg); border-color: var(--fg); }

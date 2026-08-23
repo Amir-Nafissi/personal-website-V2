@@ -71,30 +71,75 @@ top of `assets/js/main.js`: `eye`, `scroll`, `tower`, `pen`, `arch`,
 | `assets/js/content.js` | **All content** |
 | `assets/js/font.js` | 5-row block font used for every banner |
 | `assets/js/mary.js` | The rotating Saint Mary background engine |
+| `assets/js/mary-frames.js` | **Generated.** Engraving luminance maps, inlined |
 | `assets/js/main.js` | Rendering, typewriters, terminal, gallery, input |
-| `tools/gen-art.mjs` | Regenerates the placeholder artwork |
+| `assets/mary/` | **Generated.** The same maps as PNGs, plus credits |
+| `tools/fetch-sources.mjs` | Downloads public-domain engravings from the Met |
+| `tools/asciify.mjs` | Engraving → luminance map pipeline |
+| `tools/gen-art.mjs` | Regenerates the placeholder gallery artwork |
 | `tools/shot.mjs`, `tools/poses.mjs` | Headless-Chrome verification harnesses |
 
 ### The background engine
 
-`mary.js` draws six Marian poses — Theotokos, Orans, Immaculata,
-Annunciata, Pietà, Assumpta — as procedural vector scenes into an
-offscreen canvas whose pixel grid *is* the character grid, one pixel per
-cell. Each scene is then sampled twice: luminance picks a glyph from a
-ramp, and a Sobel pass overrides mid-tones with directional hatch glyphs
-(`| / - \`) so shading reads as cross-hatching rather than mush.
+The six background plates are **real Renaissance engravings** — five by
+Martin Schongauer (c. 1450–1491), one anonymous — from the Metropolitan
+Museum of Art's Open Access collection, all CC0.
 
-Because a character cell is a very coarse pixel, the scenes are drawn the
-way an icon painter would work: near-black bodies, bright continuous
-contours, a few decisive folds. Tonal masses turn to noise at this
-resolution; outlines survive.
+That sourcing is the whole aesthetic, and it is worth being explicit
+about why. The look depends entirely on burin work: parallel hatching
+that swells and tapers, cross-hatch massing in the shadows, stipple
+flicks in the half-tones. That texture is exactly what survives
+quantisation to a character grid — and it is not something bezier curves
+can fake. An earlier version of this file drew the figures procedurally
+and they read as machinery, not icons.
 
-Poses are cached as character arrays, so a transition costs one string
-build per frame. The crossfade is a per-cell noise dissolve with a bright
-burn edge, held 9s per pose over a 2.2s fade at 24fps.
+Offline, `tools/asciify.mjs` turns each plate into an inverted grayscale
+luminance map:
 
-Tuning knobs at the top of the file: `HOLD`, `FADE`, `FPS`, `RAMP`.
-Opacity is the `--mary-op` CSS custom property (default `0.175`).
+```
+source jpeg → trim paper margin → manual crop → two-step downscale
+  → auto-levels → unsharp (restores the burin lines lost to downscaling)
+  → gamma/contrast → invert (ink becomes the bright thing)
+  → vignette → posterise to 18 levels → grayscale PNG
+```
+
+At runtime `mary.js` draws each map into a canvas whose pixel grid *is*
+the character grid, then samples it twice: luminance picks a glyph from
+`RAMP`, and a Sobel pass promotes strong edges to directional glyphs
+(`| / - \`). Results are cached as character arrays, so a transition
+costs one string build per painted frame. The crossfade is a per-cell
+noise dissolve with a bright burn edge — 9s hold, 2.2s fade, 24fps.
+
+Two constraints worth knowing before you swap plates:
+
+- **Choose isolated figures on blank paper.** A plate with a fully worked
+  background (skies, architecture) inverts into a bright rectangular slab
+  that reads as a block behind your text rather than a figure floating in
+  the dark. The vignette mitigates this; it does not fix it.
+- **The maps ship inlined as `data:` URIs** in `assets/js/mary-frames.js`,
+  not as separate image files. A canvas drawn from a `file://` `<img>` is
+  tainted, so `getImageData()` would throw for anyone opening
+  `index.html` straight off disk. Copies land in `assets/mary/` for
+  reference; the inlined module is what the page uses.
+
+Tuning knobs at the top of `mary.js`: `HOLD`, `FADE`, `FPS`, `FILL`,
+`RAMP`. Opacity is the `--mary-op` CSS custom property.
+
+### Swapping the background plates
+
+```sh
+node tools/fetch-sources.mjs   # ~50 PD Marian prints from the Met -> sources/
+node tools/asciify.mjs         # chosen plates -> assets/js/mary-frames.js
+```
+
+Edit the `PLATES` array at the top of `tools/asciify.mjs` to pick
+different object IDs and tune per-plate `crop`, `gamma`, `contrast` and
+`vignette`. `sources/` is gitignored — it holds ~150MB of full-resolution
+scans and is only needed when regenerating.
+
+The Met images are CC0 and require no attribution, but the footer credits
+them anyway, and `credit` on each frame (also shown by the `mary`
+command) names the artist and plate.
 
 ### Banner text
 

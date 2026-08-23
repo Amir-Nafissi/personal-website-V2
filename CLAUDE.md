@@ -24,6 +24,8 @@ python -m http.server 8000      # serve locally (file:// also works)
 node --check assets/js/main.js  # syntax check — the only "lint" available
 
 node tools/gen-art.mjs          # regenerate the placeholder gallery SVGs
+node tools/fetch-sources.mjs    # download public-domain engravings from the Met
+node tools/asciify.mjs          # engravings -> assets/js/mary-frames.js
 node tools/shot.mjs <outDir> [waitMs]   # probes + screenshots of every section
 node tools/poses.mjs <outDir>           # each background pose at full opacity
 ```
@@ -85,29 +87,48 @@ banner width arithmetically — an earlier version did and silently ignored
 
 ### The background engine (`mary.js`)
 
-Six Marian poses are drawn as procedural vector scenes into an offscreen canvas
-whose **pixel grid is the character grid** — one canvas pixel per cell. Each
-scene is sampled twice in `toChars()`: luminance picks a glyph from `RAMP`, and
-a Sobel pass overrides mid-tones with directional hatch glyphs (`| / - \`).
-Poses are cached as character arrays, so a transition costs one string build per
-frame; the crossfade is a per-cell noise dissolve with a bright burn edge.
+The six background plates are **real Renaissance engravings** (Schongauer et
+al.) from the Met Open Access collection, CC0. They are preprocessed offline by
+`tools/asciify.mjs` into inverted grayscale luminance maps, inlined as `data:`
+URIs in the generated `assets/js/mary-frames.js`.
 
-Constraints when editing the scenes:
+At runtime each map is drawn into a canvas whose **pixel grid is the character
+grid** — one canvas pixel per cell — then sampled twice in `toChars()`:
+luminance picks a glyph from `RAMP`, and a Sobel pass promotes strong edges to
+directional glyphs. Poses cache as character arrays, so a transition costs one
+string build per painted frame; the crossfade is a per-cell noise dissolve with
+a bright burn edge.
 
-- **Scene space** is `x ∈ [-0.5, 0.5]`, `y ∈ [0, 1]`, visually square. The
-  transform in `renderPose()` corrects for the cell aspect ratio. Anything
-  drawn outside `y ∈ [0, 1]` is clipped.
-- **Line widths are in scene units, where `~0.012` is roughly one character
-  cell.** Strokes thinner than a cell anti-alias into a gray haze that the Sobel
-  pass turns into hatch noise across large areas. This was the original failure
-  mode of this file.
-- **Draw like an icon painter, not a renderer**: near-black bodies (`body()`
-  defaults to `hi: 0.11`), bright continuous contours (`ink()`), a few decisive
-  folds. Tonal masses turn to mush at this resolution; outlines survive. Keep
-  ink coverage around 20–25% — `tools/poses.mjs` prints it per pose.
+Things that will bite you here:
 
-Tuning knobs at the top of the file: `HOLD`, `FADE`, `FPS`, `RAMP`. Opacity is
-the `--mary-op` CSS custom property.
+- **Do not go back to drawing the figures procedurally.** A previous version
+  did. The aesthetic lives in the burin work — hatching that swells and tapers,
+  cross-hatch massing, stipple half-tones — which is precisely what survives the
+  character grid and precisely what bezier curves cannot fake. The procedural
+  version read as machinery.
+- **`mary-frames.js` is generated. Never hand-edit it.** Change `PLATES` in
+  `tools/asciify.mjs` and re-run.
+- **The maps must stay inlined as `data:` URIs.** A canvas drawn from a
+  `file://` `<img>` is tainted and `getImageData()` throws, which would break
+  the page for anyone opening `index.html` off disk. This is why the pipeline
+  emits a JS module rather than referencing `assets/mary/*.png` directly.
+- **Pick isolated figures on blank paper.** Plates with a fully worked
+  background invert into a bright rectangular slab behind the text. The
+  `vignette` option mitigates it; it does not fix it.
+- Keep ink coverage roughly 12–27% — `tools/poses.mjs` prints it per pose.
+
+Tuning knobs at the top of `mary.js`: `HOLD`, `FADE`, `FPS`, `FILL`, `RAMP`.
+Opacity is the `--mary-op` CSS custom property.
+
+Regenerating:
+
+```sh
+node tools/fetch-sources.mjs   # ~50 PD Marian prints -> sources/  (gitignored, ~150MB)
+node tools/asciify.mjs         # PLATES -> assets/js/mary-frames.js + assets/mary/
+```
+
+Both hit the Met's public API, which throttles aggressively; `fetch-sources.mjs`
+backs off and caches into `sources/.met-cache.json`.
 
 ## Conventions
 
