@@ -1,0 +1,15 @@
+# Output from the headless-Chrome verification harnesses
+# (tools/shot.mjs, tools/poses.mjs write screenshots + a scratch Chrome profile)
+out/
+shots/
+.chrome/
+
+# OS / editor cruft
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+node_modules/
