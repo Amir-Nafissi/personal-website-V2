@@ -656,7 +656,9 @@
       st.gx = lerp(st.gx, clamp(st.tgx + sacc.x, -1, 1), k);
       st.gy = lerp(st.gy, clamp(st.tgy + sacc.y, -1, 1), k);
 
-      /* blink state machine: close fast, hold, open slower */
+      /* Blink state machine: close, hold shut, open slower than it
+         closed. Roughly 510ms end to end — a languid blink to match
+         the half-lidded resting lid, not a startle. */
       if (!REDUCED) {
         if (st.blinkPh < 0) {
           st.nextBlink -= step;
@@ -664,18 +666,18 @@
         } else {
           st.blinkT += step;
           if (st.blinkPh === 0) {
-            st.blink = clamp(st.blinkT / 90, 0, 1);
-            if (st.blinkT >= 90) { st.blinkPh = 1; st.blinkT = 0; }
+            st.blink = clamp(st.blinkT / 150, 0, 1);
+            if (st.blinkT >= 150) { st.blinkPh = 1; st.blinkT = 0; }
           } else if (st.blinkPh === 1) {
             st.blink = 1;
-            if (st.blinkT >= 55) { st.blinkPh = 2; st.blinkT = 0; }
+            if (st.blinkT >= 95) { st.blinkPh = 2; st.blinkT = 0; }
           } else {
-            st.blink = 1 - clamp(st.blinkT / 170, 0, 1);
-            if (st.blinkT >= 170) {
+            st.blink = 1 - clamp(st.blinkT / 265, 0, 1);
+            if (st.blinkT >= 265) {
               st.blinkPh = -1; st.blink = 0; st.winkSide = -1;
               /* occasional double blink */
               st.nextBlink = Math.random() < 0.16
-                ? 220
+                ? 300
                 : 2200 + Math.random() * 5200;
             }
           }

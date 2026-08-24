@@ -153,9 +153,9 @@ console.log('EYE SYMMETRY', JSON.stringify(sym), worst > 0.12 ? 'FAIL' : 'ok');
 const blink = await evaluate(`(async () => {
   const n = (q) => document.querySelector(q).textContent.replace(/[^!-~]/g, '').length;
   window.Eyes.blink();
-  await new Promise((r) => setTimeout(r, 120));
+  await new Promise((r) => setTimeout(r, 200));
   const shut = { line: n('.eye-line'), iris: n('.eye-iris'), pupil: n('.eye-pupil') };
-  await new Promise((r) => setTimeout(r, 420));
+  await new Promise((r) => setTimeout(r, 520));
   const back = { line: n('.eye-line'), iris: n('.eye-iris'), pupil: n('.eye-pupil') };
   return { shut, back };
 })()`);
@@ -166,7 +166,7 @@ console.log('BLINK', JSON.stringify(blink),
   (blink.shut.iris || blink.shut.pupil) ? 'FAIL: wet material while shut'
   : (blink.back.iris > 0 ? 'ok' : 'FAIL: did not reopen'));
 await evaluate(`window.Eyes.blink()`);
-await sleep(120);
+await sleep(200);
 await shot('03-blink');
 await sleep(900);
 
