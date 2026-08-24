@@ -142,6 +142,15 @@ glyph ramp. Things that will bite you:
   lower one mid-blink. `shot.mjs` captures a mid-blink frame for exactly this.
 - `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
   eyes track outward instead of at the cursor.
+- **A closing eye must stop drawing the wet parts.** The two clip insets are
+  each capped at a fraction of the lid-to-lid clearance, and below about half
+  a cell of opening the iris is skipped outright. Uncapped, a closing eye
+  drives the insets past each other, the clip polygon turns inside out and
+  the iris paints over the lashes.
+- **The frame loop is timed off `step` (time since the last RENDER), not
+  `dt` (time since the last rAF).** `acc` gates rendering to FPS; advancing
+  the blink by `dt` inside that gate skips the time in between and blinks run
+  at roughly half speed.
 - **Anything offset along a curve's normal must be signed by `s`.** The
   mirrored eye walks its bezier in the opposite direction, so its normals
   point the other way: an unsigned inset shrinks the opening on one eye and

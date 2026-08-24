@@ -212,20 +212,43 @@
        full ink — sits flush against the liner, a single cell
        straddles both, and its ink-weighted material tips to iris:
        the iris colour bleeds along the whole lash line. */
-    /* The offsets are signed by `s`. offsetPath pushes along the
+    /* Vertical clearance between the lids. Both curves run outer ->
+       inner, so sampling them at a shared t is a good enough proxy
+       for how open the eye is at that point. */
+    function clearance(t) { return bezP(lower, t)[1] - bezP(upper, t)[1]; }
+
+    /* Each inset is capped at a fraction of the clearance so the two
+       boundaries can never meet. Uncapped, a CLOSING eye drives them
+       past each other, the clip polygon turns inside out, and the
+       iris paints outside the eye — purple all through the lashes.
+
+       The offsets are signed by `s`: offsetPath pushes along the
        curve's own normal, and the mirrored eye walks its bezier
-       right-to-left, so that normal points the other way — unsigned,
-       the inset expands the opening UP INTO the liner on one eye
-       and the iris colour floods its lash line. */
+       right-to-left, so that normal points the other way. */
+    function insetUp(t) {
+      return Math.min(upperW(t) * 0.5 + hh * 0.055,
+                      Math.max(0, clearance(t)) * 0.42);
+    }
+    function insetDn(t) {
+      return Math.min(lowerW(t) * 0.5 + hh * 0.040,
+                      Math.max(0, clearance(t)) * 0.42);
+    }
+
+    /* Widest point of the actual opening. A shut eye shows no iris
+       at all, so below about half a cell the wet parts are skipped
+       outright rather than squeezed into a sliver. */
+    var widest = 0, tt;
+    for (tt = 0; tt <= 1.0001; tt += 0.1) {
+      widest = Math.max(widest, clearance(tt) - insetUp(tt) - insetDn(tt));
+    }
+    var wet = widest > (e.cellH || 6) * 0.55;
+
     var open = [];
-    offsetPath(upper, function (t) {
-      return s * (upperW(t) * 0.5 + hh * 0.055);
-    }, 34, open);
-    var lowPts = offsetPath(lower, function (t) {
-      return -s * (lowerW(t) * 0.5 + hh * 0.040);
-    }, 34, []);
+    offsetPath(upper, function (t) { return s * insetUp(t); }, 34, open);
+    var lowPts = offsetPath(lower, function (t) { return -s * insetDn(t); }, 34, []);
     for (var i = lowPts.length - 1; i >= 0; i--) open.push(lowPts[i]);
 
+    if (wet) {
     ctx.save();
     poly(ctx, open);
     ctx.clip();
@@ -302,6 +325,7 @@
     ctx.fill();
 
     ctx.restore();
+    }
 
     /* ---- lids, lashes, crease — drawn over everything ------- */
     ctx.save();
@@ -607,14 +631,19 @@
       last = ts;
       acc += dt;
       if (acc < 1000 / FPS) return;
+      /* Everything below is timed off `step`, the time since the last
+         RENDER, not `dt`, the time since the last rAF. Using dt here
+         advances the blink by one frame's worth per render and it ends
+         up running at roughly half speed. */
+      var step = acc;
       acc = 0;
 
       setTargetFromMouse();
 
       /* micro-saccades keep the eyes alive when the cursor is not */
       if (!REDUCED) {
-        idleT += dt;
-        sacc.t -= dt;
+        idleT += step;
+        sacc.t -= step;
         if (sacc.t <= 0) {
           sacc.t = 700 + Math.random() * 1800;
           var amp = idleT > 2500 ? 0.075 : 0.02;
@@ -630,10 +659,10 @@
       /* blink state machine: close fast, hold, open slower */
       if (!REDUCED) {
         if (st.blinkPh < 0) {
-          st.nextBlink -= dt;
+          st.nextBlink -= step;
           if (st.nextBlink <= 0) { st.blinkPh = 0; st.blinkT = 0; }
         } else {
-          st.blinkT += dt;
+          st.blinkT += step;
           if (st.blinkPh === 0) {
             st.blink = clamp(st.blinkT / 90, 0, 1);
             if (st.blinkT >= 90) { st.blinkPh = 1; st.blinkT = 0; }

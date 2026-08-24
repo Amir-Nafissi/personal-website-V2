@@ -150,8 +150,23 @@ console.log('EYE SYMMETRY', JSON.stringify(sym), worst > 0.12 ? 'FAIL' : 'ok');
 
 /* mid-blink: the lids must meet without the upper curve crossing
    under the lower one */
+const blink = await evaluate(`(async () => {
+  const n = (q) => document.querySelector(q).textContent.replace(/[^!-~]/g, '').length;
+  window.Eyes.blink();
+  await new Promise((r) => setTimeout(r, 120));
+  const shut = { line: n('.eye-line'), iris: n('.eye-iris'), pupil: n('.eye-pupil') };
+  await new Promise((r) => setTimeout(r, 420));
+  const back = { line: n('.eye-line'), iris: n('.eye-iris'), pupil: n('.eye-pupil') };
+  return { shut, back };
+})()`);
+/* A shut eye must show NO wet material. Any iris or pupil left here
+   means the opening's clip inverted as the lids crossed, and the
+   iris colour is painting over the lashes. */
+console.log('BLINK', JSON.stringify(blink),
+  (blink.shut.iris || blink.shut.pupil) ? 'FAIL: wet material while shut'
+  : (blink.back.iris > 0 ? 'ok' : 'FAIL: did not reopen'));
 await evaluate(`window.Eyes.blink()`);
-await sleep(130);
+await sleep(120);
 await shot('03-blink');
 await sleep(900);
 
