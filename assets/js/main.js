@@ -367,6 +367,8 @@
       window.Wall.init();
 
       eyes = window.AsciiEyes.mount($('#eyes'), { edge: 1.55 });
+      /* debug handle — tools/shot.mjs drives blinks through it */
+      window.Eyes = eyes;
       var cells = eyes.cols() * eyes.rows() + window.Wall.cells();
       $('#keys-chars').textContent = cells.toLocaleString();
 

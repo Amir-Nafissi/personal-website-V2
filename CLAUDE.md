@@ -125,12 +125,20 @@ glyph ramp. Things that will bite you:
   carry it and the body only tints.
 - The lower lid is deliberately short and light. A full-strength one closes the
   outline into a ring and it stops reading as an eye.
+- The look is a **relaxed cat-eye**, and three numbers hold it there: `rest`
+  (a permanent partial lid — without it the eye reads as startled), the
+  `hw / 1.15` ratio in `render()` (a ~2.2:1 opening, flat rather than round),
+  and the outer corner running past `u = -1` and lifting into a flick. `rest`
+  eats into the blink's travel, so raising it means lowering the `b *` factor
+  or the upper curve crosses under the lower one when it closes.
 - `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
   eyes track outward instead of at the cursor.
 
-Knobs: `cols`, `aspect`, `ramp`, `edge`, `brow`, and `SS` / `FPS` / `RAMP` at
-the top of the file. `eyes.canvas` exposes the raw two-channel raster — render
-it scaled into a visible canvas to debug geometry separately from glyph mapping.
+Knobs: `cols`, `aspect`, `ramp`, `edge`, `brow`, `rest`, and `SS` / `FPS` /
+`RAMP` at the top of the file. `window.Eyes` is the live instance (set in
+`main.js`) — `shot.mjs` drives blinks through it. `eyes.canvas` exposes the
+raw two-channel raster — render it scaled into a visible canvas to debug
+geometry separately from glyph mapping.
 
 ### The deck (`deck.js`)
 

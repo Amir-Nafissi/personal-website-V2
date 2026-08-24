@@ -119,6 +119,12 @@ const gaze = await evaluate(`(async () => {
   return { tracks: a !== b };
 })()`);
 console.log('GAZE', JSON.stringify(gaze));
+
+/* mid-blink: the lids must meet without the upper curve crossing
+   under the lower one */
+await evaluate(`window.Eyes.blink()`);
+await sleep(130);
+await shot('03-blink');
 await sleep(900);
 
 /* every section, through the shell */
