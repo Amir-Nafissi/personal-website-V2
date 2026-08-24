@@ -125,12 +125,15 @@ glyph ramp. Things that will bite you:
   carry it and the body only tints.
 - The lower lid is deliberately short and light. A full-strength one closes the
   outline into a ring and it stops reading as an eye.
-- The look is a **relaxed cat-eye**, and three numbers hold it there: `rest`
-  (a permanent partial lid — without it the eye reads as startled), the
-  `hw / 1.15` ratio in `render()` (a ~2.2:1 opening, flat rather than round),
-  and the outer corner running past `u = -1` and lifting into a flick. `rest`
-  eats into the blink's travel, so raising it means lowering the `b *` factor
-  or the upper curve crosses under the lower one when it closes.
+- The look is **level and relaxed**, not a cat-eye. Two numbers hold it there:
+  `rest` (a permanent partial lid — without it the eye reads as startled)
+  and the `hw / 1.05` ratio in `render()`, a ~1.9:1 opening. Keep the corners
+  nearly level: lifting the outer corner well above the inner one reads as a
+  flick and rotates the whole face.
+- `rest` and the blink share the same travel, so they move in opposite
+  directions. Lower `rest` and the `b *` factor has to rise or the lids never
+  meet; raise `rest` and it has to fall or the upper curve crosses under the
+  lower one mid-blink. `shot.mjs` captures a mid-blink frame for exactly this.
 - `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
   eyes track outward instead of at the cursor.
 

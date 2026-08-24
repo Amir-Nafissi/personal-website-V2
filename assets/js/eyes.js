@@ -41,7 +41,7 @@
        aspect: 0.45,         // block height / block width
        ramp:   ' .:-=+*#%@', // sparse -> dense; [0] must be a space
        edge:   1.55,         // Sobel threshold for directional glyphs
-       rest:   0.17,         // permanent partial lid; 0 = wide open
+       rest:   0.11,         // permanent partial lid; 0 = wide open
        brow:   false         // draw eyebrows
      });
      eyes.look(clientX, clientY);   // or leave it: it listens
@@ -172,32 +172,33 @@
     /* `rest` is a permanent partial lid: the eye sits half-closed
        rather than wide open, which is what reads as relaxed
        instead of startled. */
-    var drop = b * 1.14 + (e.rest == null ? 0.17 : e.rest)
+    var drop = b * 1.34 + (e.rest == null ? 0.11 : e.rest)
              + Math.max(0, e.gy) * 0.09;
     var rise = b * 0.18;
 
-    /* Outer corner runs long and lifts into a flick; the inner
-       corner dips. That asymmetry is the whole cat-eye. */
+    /* The corners sit nearly level. A big lift on the outer corner
+       reads as a cat-eye flick and rotates the whole face; the eye
+       only needs the slight natural drop toward the tear duct. */
     var upper = [
-      [X(-1.14), Y(-0.34)],
-      [X(-0.62), Y(-1.14 + drop)],
-      [X(0.14), Y(-0.84 + drop)],
-      [X(1.00), Y(0.30)]
+      [X(-1.04), Y(-0.08)],
+      [X(-0.60), Y(-1.10 + drop)],
+      [X(0.16), Y(-0.92 + drop)],
+      [X(1.00), Y(0.16)]
     ];
     var lower = [
-      [X(-1.08), Y(-0.26)],
-      [X(-0.50), Y(0.56 - rise)],
-      [X(0.34), Y(0.50 - rise)],
-      [X(0.96), Y(0.30)]
+      [X(-1.00), Y(-0.02)],
+      [X(-0.50), Y(0.60 - rise)],
+      [X(0.34), Y(0.54 - rise)],
+      [X(0.96), Y(0.18)]
     ];
 
     /* Lash line thickness: peaks in the outer third, tapers to a
        point at both corners. This single curve carries most of
        the character of the eye. */
-    var wmax = hh * 0.192;
+    var wmax = hh * 0.172;
     function upperW(t) {
       var f = Math.pow(Math.sin(Math.PI * Math.pow(t, 0.70)), 0.72);
-      return wmax * f * (1.34 - 0.72 * t);
+      return wmax * f * (1.12 - 0.32 * t);
     }
     function lowerW(t) {
       if (t > 0.72) return 0;
@@ -315,9 +316,9 @@
     /* lash fan at the outer corner */
     ctx.fillStyle = paint(1.0, MAT.LINE);
     var lashes = [
-      [0.00, 0.52, 0.14],
-      [0.055, 0.43, 0.26],
-      [0.135, 0.30, 0.31]
+      [0.00, 0.40, 0.13],
+      [0.06, 0.34, 0.24],
+      [0.14, 0.24, 0.29]
     ];
     for (k = 0; k < lashes.length; k++) {
       var t0 = lashes[k][0];
@@ -444,13 +445,13 @@
       /* hw/hh sets how flat the opening is. 1.15 gives roughly a
          2.2:1 opening — relaxed and almond, not round and startled. */
       var hw = W * 0.166;
-      var hh = hw / 1.15;
-      if (hh > H * 0.30) { hh = H * 0.30; hw = hh * 1.15; }
+      var hh = hw / 1.05;
+      if (hh > H * 0.32) { hh = H * 0.32; hw = hh * 1.05; }
 
       var cy = H * 0.60;
       /* The lash flick runs to ~1.64*hw past centre, so the gap has
          to leave room or the outer lashes clip. */
-      var gap = hw * 1.24;
+      var gap = hw * 1.32;
 
       var bl = st.blink, bw = st.blink;
       if (st.winkSide === 0) bw = 0;
