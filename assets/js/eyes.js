@@ -317,11 +317,15 @@
     /* ---- specular highlights: punched clean through --------- */
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = '#fff';
+    /* Highlights do NOT take the `s` mirror. There is one light in
+       the room, so it strikes both eyes from the same side; mirroring
+       them makes the pair look cross-lit and reads as two faces. Same
+       rule as the gaze: `s` is for shape only. */
     ctx.beginPath();
-    ctx.ellipse(ix - R * 0.36 * s, iy - R * 0.38, R * 0.29, R * 0.26, 0, 0, 6.2832);
+    ctx.ellipse(ix - R * 0.36, iy - R * 0.38, R * 0.29, R * 0.26, 0, 0, 6.2832);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(ix + R * 0.38 * s, iy + R * 0.38, R * 0.14, R * 0.12, 0, 0, 6.2832);
+    ctx.ellipse(ix + R * 0.38, iy + R * 0.38, R * 0.14, R * 0.12, 0, 0, 6.2832);
     ctx.fill();
 
     ctx.restore();

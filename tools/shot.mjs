@@ -126,7 +126,11 @@ console.log('GAZE', JSON.stringify(gaze));
    eye's lash line.
 
    Measure with the gaze CENTRED. Off-centre, the mirrored lids
-   legitimately crop different amounts of iris and the skew is real. */
+   legitimately crop different amounts of iris and the skew is real.
+
+   A small residual skew is EXPECTED even centred: the speculars are
+   deliberately not mirrored, because one light in the room strikes
+   both eyes from the same side. Do not chase this to zero. */
 await evaluate(`window.Eyes.setGaze(0, 0)`);
 await sleep(1000);
 const sym = await evaluate(`(() => {

@@ -140,8 +140,12 @@ glyph ramp. Things that will bite you:
   directions. Lower `rest` and the `b *` factor has to rise or the lids never
   meet; raise `rest` and it has to fall or the upper curve crosses under the
   lower one mid-blink. `shot.mjs` captures a mid-blink frame for exactly this.
-- `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
-  eyes track outward instead of at the cursor.
+- `s` mirrors the eye's **shape** only. It must never be applied to the gaze
+  (the eyes would track outward instead of at the cursor) nor to the specular
+  highlights (one light in the room strikes both eyes from the same side;
+  mirrored speculars read as two separately-lit faces). Both are world facts,
+  not shape facts. The symmetry check in `shot.mjs` tolerates the small skew
+  the unmirrored speculars cause — do not chase it to zero.
 - **A closing eye must stop drawing the wet parts.** The two clip insets are
   each capped at a fraction of the lid-to-lid clearance, and below about half
   a cell of opening the iris is skipped outright. Uncapped, a closing eye
