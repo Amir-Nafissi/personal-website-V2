@@ -120,6 +120,34 @@ const gaze = await evaluate(`(async () => {
 })()`);
 console.log('GAZE', JSON.stringify(gaze));
 
+/* The two eyes are mirrors, so their per-material cell counts must
+   match closely. They diverge when something in drawEye ignores the
+   `s` mirror — the clip offsets did, and the iris colour flooded one
+   eye's lash line.
+
+   Measure with the gaze CENTRED. Off-centre, the mirrored lids
+   legitimately crop different amounts of iris and the skew is real. */
+await evaluate(`window.Eyes.setGaze(0, 0)`);
+await sleep(1000);
+const sym = await evaluate(`(() => {
+  const g = (q) => document.querySelector(q).textContent.split(String.fromCharCode(10));
+  const L = g('.eye-line'), I = g('.eye-iris'), P = g('.eye-pupil');
+  const W = L[0].length, half = Math.floor(W / 2);
+  const n = (A, lo, hi) => {
+    let k = 0;
+    for (let r = 0; r < A.length; r++)
+      for (let c = lo; c < hi; c++) if (A[r][c] && A[r][c] !== ' ') k++;
+    return k;
+  };
+  const cmp = (A) => {
+    const a = n(A, 0, half), b = n(A, half, W);
+    return { l: a, r: b, skew: +(Math.abs(a - b) / Math.max(1, a, b)).toFixed(3) };
+  };
+  return { line: cmp(L), iris: cmp(I), pupil: cmp(P) };
+})()`);
+const worst = Math.max(sym.line.skew, sym.iris.skew, sym.pupil.skew);
+console.log('EYE SYMMETRY', JSON.stringify(sym), worst > 0.12 ? 'FAIL' : 'ok');
+
 /* mid-blink: the lids must meet without the upper curve crossing
    under the lower one */
 await evaluate(`window.Eyes.blink()`);

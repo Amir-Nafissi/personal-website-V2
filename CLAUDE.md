@@ -142,6 +142,14 @@ glyph ramp. Things that will bite you:
   lower one mid-blink. `shot.mjs` captures a mid-blink frame for exactly this.
 - `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
   eyes track outward instead of at the cursor.
+- **Anything offset along a curve's normal must be signed by `s`.** The
+  mirrored eye walks its bezier in the opposite direction, so its normals
+  point the other way: an unsigned inset shrinks the opening on one eye and
+  expands it into the liner on the other. `ribbon()` is safe (it offsets both
+  ways), `offsetPath()` is not. `shot.mjs` compares per-material cell counts
+  between the two eyes and fails on skew — measured with the gaze CENTRED,
+  because off-centre the mirrored lids really do crop different amounts of
+  iris.
 
 Knobs: `cols`, `aspect`, `ramp`, `edge`, `brow`, `rest`, and `SS` / `FPS` /
 `RAMP` at the top of the file. `window.Eyes` is the live instance (set in

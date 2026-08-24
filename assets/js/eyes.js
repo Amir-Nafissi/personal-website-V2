@@ -212,12 +212,17 @@
        full ink — sits flush against the liner, a single cell
        straddles both, and its ink-weighted material tips to iris:
        the iris colour bleeds along the whole lash line. */
+    /* The offsets are signed by `s`. offsetPath pushes along the
+       curve's own normal, and the mirrored eye walks its bezier
+       right-to-left, so that normal points the other way — unsigned,
+       the inset expands the opening UP INTO the liner on one eye
+       and the iris colour floods its lash line. */
     var open = [];
     offsetPath(upper, function (t) {
-      return upperW(t) * 0.5 + hh * 0.055;
+      return s * (upperW(t) * 0.5 + hh * 0.055);
     }, 34, open);
     var lowPts = offsetPath(lower, function (t) {
-      return -(lowerW(t) * 0.5 + hh * 0.040);
+      return -s * (lowerW(t) * 0.5 + hh * 0.040);
     }, 34, []);
     for (var i = lowPts.length - 1; i >= 0; i--) open.push(lowPts[i]);
 
