@@ -207,9 +207,18 @@
     }
 
     /* ---- eye opening, used as the clip for everything wet ---- */
+    /* Hold the wet part clear of the lids by half the ribbon plus a
+       fixed margin. Without that margin the limbal ring — which is
+       full ink — sits flush against the liner, a single cell
+       straddles both, and its ink-weighted material tips to iris:
+       the iris colour bleeds along the whole lash line. */
     var open = [];
-    offsetPath(upper, function (t) { return upperW(t) * 0.42; }, 34, open);
-    var lowPts = offsetPath(lower, function (t) { return -lowerW(t) * 0.40; }, 34, []);
+    offsetPath(upper, function (t) {
+      return upperW(t) * 0.5 + hh * 0.055;
+    }, 34, open);
+    var lowPts = offsetPath(lower, function (t) {
+      return -(lowerW(t) * 0.5 + hh * 0.040);
+    }, 34, []);
     for (var i = lowPts.length - 1; i >= 0; i--) open.push(lowPts[i]);
 
     ctx.save();
@@ -556,8 +565,12 @@
           idx = r * cols + c;
           var g1 = chars[idx], m = mat[idx];
           if (g1 === ' ') { lr += ' '; ir += ' '; pr += ' '; }
-          else if (m >= 0.75) { lr += ' '; ir += ' '; pr += g1; }
-          else if (m >= 0.25) { lr += ' '; ir += g1; pr += ' '; }
+          /* Thresholds sit above the midpoint of each material step
+             (0 / .5 / 1) so a cell has to be *mostly* iris or pupil
+             to take that colour. Splitting at the midpoint hands
+             every boundary cell to the wetter material. */
+          else if (m >= 0.78) { lr += ' '; ir += ' '; pr += g1; }
+          else if (m >= 0.33) { lr += ' '; ir += g1; pr += ' '; }
           else { lr += g1; ir += ' '; pr += ' '; }
         }
         L.push(lr); I.push(ir); P.push(pr);

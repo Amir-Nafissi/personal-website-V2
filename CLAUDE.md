@@ -106,6 +106,12 @@ glyph ramp. Things that will bite you:
   cell's material is `sum(G)/sum(R)` — an ink-weighted mean. An area mean gets
   diluted by empty space and a cell holding one thin iris stroke comes out
   coloured as a line.
+- **Material bleeds unless the wet part is held clear of the lids.** The clip
+  insets by half the ribbon *plus* a fixed margin; flush against the liner, the
+  full-ink limbal ring shares cells with it and their mixed material tips to
+  iris, colouring the whole lash line. The layer thresholds (0.33 / 0.78) also
+  sit above the midpoints of the 0 / .5 / 1 material steps, so a genuinely
+  split cell falls to the line work rather than to the wetter material.
 - **Ink accumulates with `'lighter'`; highlights are punched with
   `'destination-out'`**, which clears both channels at once — which is exactly
   what a specular should do.
