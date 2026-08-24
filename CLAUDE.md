@@ -4,18 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-page ASCII-art portfolio site. Vanilla HTML/CSS/JS — **no build step, no
-package.json, no dependencies, no test suite.** Scripts are classic (non-module)
-browser scripts loaded in dependency order by `index.html`:
+A single-page personal site themed as a **customised Linux desktop ("rice")
+with anime** — ASCII anime eyes that follow the cursor, and a terminal that
+drives everything else.
+
+Vanilla HTML/CSS/JS — **no build step, no package.json, no dependencies, no
+test suite.** Scripts are classic (non-module) browser scripts loaded in
+dependency order by `index.html`:
 
 ```
-font.js  →  content.js  →  mary.js  →  main.js
+font.js → content.js → eyes.js → wall.js → deck.js → shell.js → main.js
 ```
 
-They communicate through three globals: `window.AsciiFont`, `window.SITE`,
-`window.MaryBG`. Code is written in ES5 style (`var`, IIFE modules, no arrow
-functions) — match it. The `tools/*.mjs` scripts are the exception: those are
-Node ESM and use modern syntax freely.
+They communicate through globals: `window.AsciiFont`, `window.SITE`,
+`window.AsciiEyes`, `window.Wall`, `window.Deck`, `window.Shell`. Code is ES5
+style (`var`, IIFE modules, no arrow functions) — match it. The `tools/*.mjs`
+scripts are the exception: Node ESM, modern syntax.
+
+The previous Renaissance/phosphor version of this site is preserved on the
+**`regular-mary`** branch. Its background engine (`mary.js`, `mary-frames.js`,
+`assets/mary/`, and the three Met-scraping tools) was removed from `main`.
 
 ## Commands
 
@@ -23,144 +31,151 @@ Node ESM and use modern syntax freely.
 python -m http.server 8000      # serve locally (file:// also works)
 node --check assets/js/main.js  # syntax check — the only "lint" available
 
-node tools/gen-art.mjs          # regenerate the placeholder gallery SVGs
-node tools/fetch-sources.mjs    # download public-domain engravings from the Met
-node tools/asciify.mjs          # engravings -> assets/js/mary-frames.js
-node tools/shot.mjs <outDir> [waitMs]   # probes + screenshots of every section
-node tools/poses.mjs <outDir>           # each background pose at full opacity
+node tools/gen-art.mjs                  # regenerate the placeholder gallery SVGs
+node tools/peek.mjs <file> <out.png> [waitMs] [w] [h] [--js=expr]...
+node tools/shot.mjs <outDir> [waitMs]   # full walkthrough: every stage + section
 ```
 
-`tools/shot.mjs` and `tools/poses.mjs` drive real headless Chrome over the
-DevTools Protocol. Both hardcode the Chrome path and (in `shot.mjs`) the page
-URL as constants at the top — edit them if the repo moves.
+`peek.mjs` is the workhorse — point it at any page, wait, run `--js` probes
+(promises are awaited), get a PNG and the console log. `shot.mjs` drives the
+whole site through boot → eyes → shell → each section → lightbox → themes →
+mobile.
 
 **Verification must run in real time.** Chrome's `--virtual-time-budget`
-fast-forwards timers but never delivers `IntersectionObserver` callbacks, so a
-virtual-time screenshot shows every scroll-triggered feature (typewriters,
-reveals, skill bars, project descriptions, the context terminal) as broken when
-it is fine. Use the CDP harnesses, not `chrome --screenshot`.
+fast-forwards timers but never delivers `IntersectionObserver` callbacks or
+settles CSS transitions, so a virtual-time screenshot shows the stage machine,
+the typewriter and the card entry as broken when they are fine. Use the CDP
+harnesses, never `chrome --screenshot`.
 
-`shot.mjs` prints a `PROBE` object and a `CONSOLE` line; treat any non-`(clean)`
-console output as a failure.
+Both tools hardcode the Chrome path as a constant at the top — edit if the
+machine changes. Treat any non-`(clean)` console output as a failure.
 
 ## Architecture
 
 ### Content is data, not markup
 
 Everything the page says lives in `assets/js/content.js` as one `window.SITE`
-object. `index.html` contains only structure and static ASCII furniture; every
-section body is generated at runtime by `main.js`. Change content there, never
-in the markup or the render functions.
+object. `index.html` is structure only. The four sections
+(`education`, `work`, `projects`, `creations`) each declare `cmd`, `title`,
+`path`, `blurb` and a `cards` array. **One card schema renders them all** — a
+card may carry any of `head`, `sub`, `meta`, `badge`, `body[]`, `list[]`,
+`tags[]`, `links[]`, `bars[]`, `art`. Add a field to `deck.js`'s `build()`, not
+a new card type.
 
-The shipped content is **placeholder** — invented employers, degrees, and
-projects, plus procedurally generated gallery SVGs.
+The shipped content is **placeholder** — invented employers, degrees and
+projects, plus procedurally generated gallery SVGs (still in the old
+Renaissance style; regenerate `gen-art.mjs` if that bothers you).
 
-### ASCII boxes are computed, not hardcoded
+### The page is a desktop, not a document
 
-Box-drawn blocks (hero card, education windows, the specs panel) are built as
-strings in JS sized from the measured character width `CW`, via `fitCols()`.
-This means they must be rebuilt whenever the viewport changes.
+`body` never scrolls. `#bar` is the status bar, `#desk` fills the rest,
+`#stage` holds the eyes and terminal, `#deck` slides up underneath.
 
-`buildResponsive()` in `main.js` is the resize path — it re-runs `measure()`,
-`paintBanners()`, `buildHero()`, `buildEducation()`, `buildSpecs()`, then
-`fitBanners()` and `fitSpines()`. Sections built once at startup (experience,
-projects, gallery) are **not** rebuilt; anything of theirs that depends on
-layout needs an explicit refit hook in that rAF instead.
+There are four stages, held in one attribute on `<html>`:
 
-### Two font faces, and why it matters
+| `data-stage` | what is on screen |
+|---|---|
+| `boot`  | the boot log |
+| `eyes`  | eyes alone, centred |
+| `shell` | eyes step right, terminal opens on the left |
+| `open`  | stage lifts and scales, deck rises into the gap |
 
-Share Tech Mono / VT323 / Courier Prime have **no box-drawing or block glyphs**.
-Those characters silently fall back to a system mono with a *different advance
-width*, which breaks column alignment in a way that is easy to miss and looks
-like a layout bug. Every block of pure ASCII art is therefore pinned to
-`--mono-sys` by a single rule in `style.css` (search for "Box-drawing and block
-glyphs"). **If you add box-drawn or block-shaded UI, add its selector to that
-rule.**
+**Every movement between stages is a CSS transform keyed off that attribute**
+(the `STAGE MACHINE` block in `style.css`). This is load-bearing, not a style
+preference: animating `width`/`height`/`top` on `#stage` or `#eyes` relayouts
+the character grids, which fires the eyes' `ResizeObserver` and re-rasterises
+the whole drawing every frame. If you need a new stage, add an attribute value
+and transforms — do not animate box metrics.
 
-### Banner sizing
+`--lift` and `--stage-k` are **measured in `main.js` (`fitStage`)**, not
+authored in CSS. The terminal's height depends on how many chip rows wrapped,
+so a hard-coded lift either overlaps the deck or leaves a hole. `fitStage()`
+centres the scaled stage in whatever room is left above the deck; call it after
+anything that changes the deck height or the terminal's contents.
 
-`font.js` renders any string as five rows of block glyphs. Banners opt into
-auto-shrinking by carrying a `data-fs-max` attribute; `fitBanner()` sets that
-maximum, reads `scrollWidth`, and scales from the measured ratio. Do not model
-banner width arithmetically — an earlier version did and silently ignored
-`letter-spacing`, clipping longer titles.
+### The eye engine (`eyes.js`)
 
-### The background engine (`mary.js`)
+`window.AsciiEyes.mount(hostEl, opts)`. Self-contained and documented at the
+top of the file — it is meant to stand alone as a project.
 
-The six background plates are **real Renaissance engravings** (Schongauer et
-al.) from the Met Open Access collection, CC0. They are preprocessed offline by
-`tools/asciify.mjs` into inverted grayscale luminance maps, inlined as `data:`
-URIs in the generated `assets/js/mary-frames.js`.
+Pipeline: vector eye → supersampled canvas → one value per character cell →
+glyph ramp. Things that will bite you:
 
-At runtime each map is drawn into a canvas whose **pixel grid is the character
-grid** — one canvas pixel per cell — then sampled twice in `toChars()`:
-luminance picks a glyph from `RAMP`, and a Sobel pass promotes strong edges to
-directional glyphs. Poses cache as character arrays, so a transition costs one
-string build per painted frame; the crossfade is a per-cell noise dissolve with
-a bright burn edge.
+- **Two quantities travel in two colour channels.** R is ink, G is
+  ink-weighted material (line / iris / pupil). G is scaled *by* the ink so a
+  cell's material is `sum(G)/sum(R)` — an ink-weighted mean. An area mean gets
+  diluted by empty space and a cell holding one thin iris stroke comes out
+  coloured as a line.
+- **Ink accumulates with `'lighter'`; highlights are punched with
+  `'destination-out'`**, which clears both channels at once — which is exactly
+  what a specular should do.
+- **Ink passes through a contrast window (`LO`/`HI`) before the ramp.** Every
+  antialiased stroke carries a halo of partial cells; mapped straight onto the
+  ramp that halo doubles the apparent width of every line and the drawing turns
+  to mush.
+- **Directional (Sobel) glyphs need an ink gate as well as a magnitude
+  threshold.** Without it every faint texture inside the iris becomes hatching
+  and the eye collapses into a mesh.
+- **The eye needs ROWS.** The character cell is about 1:2, so vertical
+  resolution is the scarce axis and it is what limits how much of the drawing
+  survives. `.eye-layer` is 8px on purpose (~50 rows in the hero box). Raising
+  the font size coarsens the grid and the eye stops reading.
+- **Fills must stay faint.** On a dark ground the ink *is* the mark. A solidly
+  filled iris rasterises to a block of `@`; the rim, the ticks and the pupil
+  carry it and the body only tints.
+- The lower lid is deliberately short and light. A full-strength one closes the
+  outline into a ring and it stops reading as an eye.
+- `s` mirrors the eye's **shape** and must never be applied to the gaze, or the
+  eyes track outward instead of at the cursor.
 
-Things that will bite you here:
+Knobs: `cols`, `aspect`, `ramp`, `edge`, `brow`, and `SS` / `FPS` / `RAMP` at
+the top of the file. `eyes.canvas` exposes the raw two-channel raster — render
+it scaled into a visible canvas to debug geometry separately from glyph mapping.
 
-- **Do not go back to drawing the figures procedurally.** A previous version
-  did. The aesthetic lives in the burin work — hatching that swells and tapers,
-  cross-hatch massing, stipple half-tones — which is precisely what survives the
-  character grid and precisely what bezier curves cannot fake. The procedural
-  version read as machinery.
-- **`mary-frames.js` is generated. Never hand-edit it.** Change `PLATES` in
-  `tools/asciify.mjs` and re-run.
-- **The maps must stay inlined as `data:` URIs.** A canvas drawn from a
-  `file://` `<img>` is tainted and `getImageData()` throws, which would break
-  the page for anyone opening `index.html` off disk. This is why the pipeline
-  emits a JS module rather than referencing `assets/mary/*.png` directly.
-- **Pick isolated figures on blank paper.** Plates with a fully worked
-  background invert into a bright rectangular slab behind the text. The
-  `vignette` option mitigates it; it does not fix it.
-- Keep ink coverage roughly 12–27% — `tools/poses.mjs` prints it per pose.
+### The deck (`deck.js`)
 
-**Scale and parallax.** Plates render larger than the viewport into a buffer of
-`bufRows` (> `rows`), and page scroll slides a `rows`-high window down it — so
-panning is index arithmetic on the cached char array, never a redraw. Two things
-follow from that and are easy to break:
+The rail is a **real `overflow-x` container**, not a transformed strip, so
+trackpad swipes, touch drags, keyboard focus and scroll-snap work for free. A
+`wheel` listener folds `deltaY` into a target `scrollLeft` that a rAF loop eases
+toward; a horizontal wheel is left alone for the browser. Keep both paths —
+dropping the native container costs accessibility, dropping the wheel handler
+costs the whole "scroll moves cards sideways" idea.
 
-- `renderPose()` and `toChars()` work in **buffer** space (`bufRows`); `paint()`
-  works in **screen** space (`rows`) and adds `Math.round(panCur) * cols` to
-  reach the plate. The `noise` array is screen-sized on purpose, so a dissolve
-  sweeps the viewport rather than sliding with the parallax. Mixing the two
-  coordinate spaces gives out-of-bounds reads and a blank background.
-- `bufRows` is derived from `plateHeight()` across all images, floored at
-  `rows * (1 + TRAVEL)`. Do not hardcode it to `rows * BIG`: a portrait plate at
-  full viewport height is wider than a phone screen in character terms, so
-  narrow grids fall back to a width fit and would otherwise get no pan travel.
+`close()` waits out the slide-down transition before emptying the rail;
+emptying immediately collapses it mid-slide.
 
-Knobs at the top of `mary.js`: `BIG`, `TRAVEL`, `EASE`, `MAXW`, `HOLD`, `FADE`,
-`FPS`, `RAMP`. Opacity is the `--mary-op` CSS custom property. Parallax pins to
-centre under `prefers-reduced-motion`.
+### The shell (`shell.js`)
 
-Regenerating:
+The `<input>` is transparent and a mirror `<span>` draws the text, so the caret
+can be a block glyph that inverts the character under it. A `caret-color` caret
+cannot do that and a `contenteditable` would cost selection and IME handling.
 
-```sh
-node tools/fetch-sources.mjs   # ~50 PD Marian prints -> sources/  (gitignored, ~150MB)
-node tools/asciify.mjs         # PLATES -> assets/js/mary-frames.js + assets/mary/
-```
+Section commands render nothing themselves — they call back into `main.js`,
+which owns the stage and the deck. `resolve()` folds `cd work`, `work`,
+`./work`, `jobs` and `experience` onto one key; add aliases there.
 
-Both hit the Met's public API, which throttles aggressively; `fetch-sources.mjs`
-backs off and caches into `sources/.met-cache.json`.
+Echoed commands type out character by character; **output lines are revealed in
+a stagger, not typed.** Typing every output character makes `neofetch` take four
+seconds.
 
 ## Conventions
 
-- Every ASCII banner carries an `aria-label` with its plain-text content;
-  purely decorative art is `aria-hidden="true"`.
-- `main.js` and `mary.js` each hold a `REDUCED` / `reduced` flag from
-  `prefers-reduced-motion`. New motion must check it — it currently gates the
-  CRT flicker, typewriters, cursor trail, scroll particles, sparkles, and
-  background rotation.
-- Audio is opt-in and silent until the user toggles it; `Snd.click()` is a no-op
-  when off, so it is safe to call from anywhere.
 - Any user-supplied string interpolated into HTML goes through `esc()`.
+- `main.js`, `eyes.js`, `wall.js`, `deck.js` and `shell.js` each hold a
+  `REDUCED` flag from `prefers-reduced-motion`. New motion must check it — it
+  currently gates blinking, saccades, the wallpaper, the bar meters, the boot
+  typing, card stagger and rail easing.
+- Audio is opt-in and silent until toggled; `Snd.click()` is a no-op when off,
+  so it is safe to call from anywhere.
+- Purely decorative character art is `aria-hidden="true"`; the eyes host
+  carries `role="img"` and a label.
+- Themes are `mocha` / `gruvbox` / `tokyo` on `<html data-theme>`, all three
+  driven by the same token names. Add a palette by adding a block — never
+  hard-code a hex outside the `:root` blocks.
 
-## Note
+### Fonts
 
-A Gemini CLI config directory exists at `~/.gemini`. If you want its settings,
-MCP servers, or commands brought over, reply `/import` to see what's importable,
-then `/import --yes=<digest>` to apply it. (Run `claude import` from a terminal
-if `/import` isn't available here.)
+The UI face is JetBrains Mono. Pure character art is pinned to `--mono-sys`
+(the rule near the top of `style.css`) so block and box-drawing glyphs cannot
+fall back to a face with a different advance width and shear the columns.
+**If you add box-drawn or block-shaded UI, add its selector to that rule.**

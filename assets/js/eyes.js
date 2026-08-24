@@ -412,8 +412,11 @@
       measure();
       var boxW = host.clientWidth || 640;
       cols = opts.cols || Math.max(28, Math.floor(boxW / cw));
-      var aspect = opts.aspect || 0.34;              /* px height / px width */
-      rows = Math.max(8, Math.round(cols * cw * aspect / ch));
+      /* With no explicit aspect, fill the host box: the grid is
+         however many whole rows fit in its height. */
+      rows = opts.aspect
+        ? Math.max(8, Math.round(cols * cw * opts.aspect / ch))
+        : Math.max(8, Math.floor((host.clientHeight || 300) / ch));
       W = cols * ss;
       H = Math.round(rows * ss * cellA);
       cv.width = W; cv.height = H;

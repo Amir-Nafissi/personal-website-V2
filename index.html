@@ -1,232 +1,152 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="green">
+<html lang="en" data-theme="mocha" data-stage="boot">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AMIR NAFISSI — ASCII SCRIPTORIUM</title>
-<meta name="description" content="Personal portfolio rendered entirely in ASCII. Renaissance illumination meets the terminal.">
+<title>amir@kanso — ~/rice</title>
+<meta name="description" content="A personal site built as a ricing screenshot: ASCII anime eyes that follow your cursor, and a terminal that takes commands.">
 <meta name="color-scheme" content="dark">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0a0a'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='%2300ff41' font-family='monospace'>&#9788;</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231e1e2e'/><ellipse cx='16' cy='16' rx='9' ry='7' fill='none' stroke='%23cba6f7' stroke-width='2.4'/><circle cx='16' cy='16' r='3.2' fill='%23f5e0dc'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
 <!-- ============================================================
-     BOOT SEQUENCE
+     BOOT
      ============================================================ -->
 <div id="boot" class="boot" role="status" aria-label="Boot sequence">
   <pre id="boot-log" class="boot-log"></pre>
   <button id="boot-skip" class="boot-skip" type="button">[ press any key to skip ]</button>
 </div>
 
-<!-- ============================================================
-     BACKGROUND: rotating ASCII Saint Mary
-     ============================================================ -->
-<div id="mary-bg" class="mary-bg" aria-hidden="true">
-  <pre id="mary-pre" class="mary-pre"></pre>
-</div>
-<div class="crt-scanlines" aria-hidden="true"></div>
-<div class="crt-flicker" aria-hidden="true"></div>
-<div class="crt-vignette" aria-hidden="true"></div>
-
-<!-- cursor trail canvas -->
-<canvas id="trail" class="trail" aria-hidden="true"></canvas>
+<!-- ambient ASCII wallpaper -->
+<div id="wall" class="wall" aria-hidden="true"><pre id="wall-pre"></pre></div>
+<div class="crt-scan" aria-hidden="true"></div>
+<div class="crt-vig" aria-hidden="true"></div>
 
 <!-- ============================================================
-     HEADER / NAV
+     BAR  (waybar)
      ============================================================ -->
-<header class="hdr" id="hdr">
-  <div class="hdr-top">
-    <a class="hdr-brand" href="#home">
-      <span class="brand-glyph" aria-hidden="true">☩</span><span class="brand-name">amir@scriptorium</span><span class="brand-path">:~$</span>
-    </a>
-    <nav class="nav" id="nav" aria-label="Primary">
-      <a href="#education" data-deco="✦"><span class="nav-b">[</span>education<span class="nav-b">]</span></a>
-      <a href="#experience" data-deco="✧"><span class="nav-b">[</span>work<span class="nav-b">]</span></a>
-      <a href="#projects" data-deco="⋆"><span class="nav-b">[</span>projects<span class="nav-b">]</span></a>
-      <a href="#context" data-deco="✦"><span class="nav-b">[</span>context<span class="nav-b">]</span></a>
-      <a href="#gallery" data-deco="✧"><span class="nav-b">[</span>art<span class="nav-b">]</span></a>
+<header id="bar" class="bar">
+  <div class="bar-side bar-l">
+    <span class="bar-logo" aria-hidden="true">◆</span>
+    <nav id="ws" class="ws" aria-label="Workspaces">
+      <button class="ws-b" type="button" data-cmd="home"       data-n="1" title="home">1</button>
+      <button class="ws-b" type="button" data-cmd="education"  data-n="2" title="education">2</button>
+      <button class="ws-b" type="button" data-cmd="work"       data-n="3" title="work">3</button>
+      <button class="ws-b" type="button" data-cmd="projects"   data-n="4" title="projects">4</button>
+      <button class="ws-b" type="button" data-cmd="creations"  data-n="5" title="personal creations">5</button>
     </nav>
-    <div class="hdr-tools">
-      <button id="btn-theme" class="tbtn" type="button" title="Toggle amber / green phosphor" aria-label="Toggle colour scheme">[ amber ]</button>
-      <button id="btn-sound" class="tbtn" type="button" title="Toggle terminal clicks" aria-pressed="false" aria-label="Toggle sound">[ snd:off ]</button>
-    </div>
   </div>
-  <div class="hdr-rule" aria-hidden="true"></div>
-  <div class="hdr-progress">
-    <span class="prog-label">scroll</span>
-    <span id="prog-bar" class="prog-bar">[░░░░░░░░░░░░░░░░░░░░]</span>
-    <span id="prog-pct" class="prog-pct">000%</span>
+
+  <div class="bar-c">
+    <span id="bar-title" class="bar-title">amir@kanso: ~</span>
+  </div>
+
+  <div class="bar-side bar-r">
+    <span class="mod" id="mod-cpu" title="cpu">cpu <span class="mod-bar" data-bar="cpu">▁▂▃▄▅</span></span>
+    <span class="mod" id="mod-mem" title="memory">mem <span class="mod-v">56%</span></span>
+    <button class="mod mod-b" id="mod-theme" type="button" title="Cycle colour scheme">◐ <span class="mod-v">mocha</span></button>
+    <button class="mod mod-b" id="mod-snd" type="button" title="Toggle sound" aria-pressed="false">♪ <span class="mod-v">off</span></button>
+    <span class="mod" id="mod-clock">--:--</span>
   </div>
 </header>
 
-<main id="main">
+<!-- ============================================================
+     DESKTOP
+     ============================================================ -->
+<main id="desk" class="desk">
 
-  <!-- ==========================================================
-       HERO
-       ========================================================== -->
-  <section id="home" class="sec sec-hero" tabindex="-1">
-    <pre id="hero-banner" class="banner banner-xl" aria-label="Amir Nafissi"></pre>
-    <pre class="hero-rule" aria-hidden="true">════════════════════════════════════════════════════════════</pre>
-    <p class="hero-role" data-tw>Software Engineer / Systems &amp; Interfaces</p>
-    <p class="hero-tag">&gt; <span data-tw data-tw-delay="900">Illuminated manuscripts, rendered in 7-bit.</span><span class="caret">█</span></p>
-    <pre class="hero-card" id="hero-card"></pre>
-    <div class="hero-links" id="hero-links"></div>
-    <div class="scroll-hint" aria-hidden="true">
-      <pre>│
-▼
-scroll</pre>
-    </div>
-  </section>
+  <!-- ---- stage: eyes + terminal ---------------------------- -->
+  <div id="stage" class="stage">
 
-  <!-- ==========================================================
-       EDUCATION
-       ========================================================== -->
-  <section id="education" class="sec" tabindex="-1">
-    <header class="sec-head">
-      <pre class="banner" data-banner="EDUCATION" aria-label="Education"></pre>
-      <p class="sec-sub" data-tw>&gt; cat /var/log/education.log</p>
-    </header>
-    <div id="edu-list" class="edu-list"></div>
-  </section>
+    <div id="eyes" class="eyes"></div>
 
-  <!-- ==========================================================
-       EXPERIENCE
-       ========================================================== -->
-  <section id="experience" class="sec" tabindex="-1">
-    <header class="sec-head">
-      <pre class="banner" data-banner="WORK" aria-label="Work experience"></pre>
-      <p class="sec-sub" data-tw>&gt; ps aux | grep career</p>
-    </header>
-    <div id="exp-list" class="exp-list"></div>
+    <section id="term-win" class="win term" aria-label="Terminal">
+      <header class="win-bar">
+        <span class="win-dots" aria-hidden="true">● ● ●</span>
+        <span class="win-title">amir@kanso: ~ — foot</span>
+        <span class="win-tag" aria-hidden="true">[1]</span>
+      </header>
 
-    <div class="skills-block">
-      <pre class="skills-title" aria-hidden="true">┌─ skills.sh ─────────────────────────────┐</pre>
-      <div id="skill-bars" class="skill-bars"></div>
-      <pre class="skills-title" aria-hidden="true">└─────────────────────────────────────────┘</pre>
-    </div>
-  </section>
+      <div id="term-out" class="term-out" role="log" aria-live="polite" aria-label="Terminal output"></div>
 
-  <!-- ==========================================================
-       PROJECTS
-       ========================================================== -->
-  <section id="projects" class="sec" tabindex="-1">
-    <header class="sec-head">
-      <pre class="banner" data-banner="PROJECTS" aria-label="Projects"></pre>
-      <p class="sec-sub" data-tw>&gt; ls -la ~/works --sort=affection</p>
-    </header>
-    <div id="proj-grid" class="proj-grid"></div>
-  </section>
+      <form id="term-form" class="term-line" autocomplete="off">
+        <label class="ps1" for="term-in"><span class="ps1-u">amir</span><span class="ps1-p">@</span><span class="ps1-h">kanso</span><span class="ps1-s">:</span><span class="ps1-w">~</span><span class="ps1-s">$</span></label>
+        <span class="term-field">
+          <span id="term-mirror" class="term-mirror" aria-hidden="true"></span>
+          <input id="term-in" class="term-in" type="text" spellcheck="false"
+                 autocomplete="off" autocapitalize="off" aria-label="Command input">
+        </span>
+      </form>
 
-  <!-- ==========================================================
-       CONTEXT
-       ========================================================== -->
-  <section id="context" class="sec" tabindex="-1">
-    <header class="sec-head">
-      <pre class="banner" data-banner="CONTEXT" aria-label="Context"></pre>
-      <p class="sec-sub" data-tw>&gt; ./about --interactive</p>
+      <div id="term-btns" class="term-btns" aria-label="Quick commands"></div>
+    </section>
+
+  </div>
+
+  <!-- ---- deck: horizontal card rail ------------------------ -->
+  <section id="deck" class="deck" aria-label="Section cards" aria-hidden="true">
+    <header class="deck-head">
+      <span class="deck-path" id="deck-path"></span>
+      <span class="deck-blurb" id="deck-blurb"></span>
+      <span class="deck-spacer"></span>
+      <span class="deck-count" id="deck-count"></span>
+      <button class="deck-x" id="deck-x" type="button" title="clear (esc)">clear ✕</button>
     </header>
 
-    <div class="ctx-wrap">
-      <div class="term" id="ctx-term">
-        <div class="term-bar">
-          <span class="term-dots" aria-hidden="true">● ● ●</span>
-          <span class="term-title">amir@scriptorium — ~/about — 80×24</span>
-        </div>
-        <div class="term-body" id="ctx-body" tabindex="0" role="log" aria-live="polite"></div>
-        <div class="term-hint">
-          <span>run:</span>
-          <button class="cmd-chip" data-cmd="whoami">whoami</button>
-          <button class="cmd-chip" data-cmd="cat interests.txt">cat interests.txt</button>
-          <button class="cmd-chip" data-cmd="./skills.sh">./skills.sh</button>
-          <button class="cmd-chip" data-cmd="neofetch">neofetch</button>
-          <button class="cmd-chip" data-cmd="now">now</button>
-          <button class="cmd-chip" data-cmd="clear">clear</button>
-        </div>
-      </div>
-      <pre id="specs" class="specs" aria-label="System specifications"></pre>
-    </div>
-  </section>
+    <div id="rail" class="rail" tabindex="0" role="list"></div>
 
-  <!-- ==========================================================
-       GALLERY
-       ========================================================== -->
-  <section id="gallery" class="sec" tabindex="-1">
-    <header class="sec-head">
-      <pre class="banner" data-banner="MY ART" aria-label="Check out my art"></pre>
-      <p class="sec-sub" data-tw>&gt; feh --gallery ~/art/*  # the only pixels on this page</p>
-    </header>
-    <div id="gal-grid" class="gal-grid"></div>
+    <footer class="deck-foot">
+      <span class="deck-hint" aria-hidden="true">scroll ▸ or ← →</span>
+      <div class="deck-prog" aria-hidden="true"><span id="deck-prog-i"></span></div>
+    </footer>
   </section>
 
 </main>
 
-<footer class="ftr">
-  <pre class="ftr-rule" aria-hidden="true">╔══════════════════════════════════════════════════════════════╗</pre>
-  <p class="ftr-line">&gt; <span id="ftr-txt"></span><span class="caret">█</span></p>
-  <pre class="ftr-rule" aria-hidden="true">╚══════════════════════════════════════════════════════════════╝</pre>
-  <p class="ftr-meta">no frameworks · no trackers · <span id="ftr-chars">0</span> characters rendered per frame · <span class="hint">↑↑↓↓←→←→BA</span></p>
-  <p class="ftr-meta ftr-credit">background: engravings by Martin Schongauer (c.1450–1491) and contemporaries,
-    <a href="https://www.metmuseum.org/art/collection" target="_blank" rel="noopener">The Met Open Access</a> (CC0) —
-    <span id="ftr-plate"></span></p>
-</footer>
-
 <!-- ============================================================
-     COMMAND BAR
+     KEYBIND HINTS
      ============================================================ -->
-<div class="cmdbar" id="cmdbar">
-  <label class="cmd-prompt" for="cmd-input">&gt; navigate_to:</label>
-  <input id="cmd-input" class="cmd-input" type="text" spellcheck="false" autocomplete="off"
-         placeholder="[section_name]   ·   type `help` for commands   ·   press / to focus" aria-label="Terminal command input">
-  <span class="cmd-ghost" id="cmd-ghost"></span>
-  <output class="cmd-out" id="cmd-out" aria-live="polite"></output>
-</div>
+<footer id="keys" class="keys">
+  <span><kbd>/</kbd> focus</span>
+  <span><kbd>1</kbd>–<kbd>5</kbd> workspace</span>
+  <span><kbd>←</kbd><kbd>→</kbd> cards</span>
+  <span><kbd>Tab</kbd> complete</span>
+  <span><kbd>Esc</kbd> clear</span>
+  <span class="keys-sig">no frameworks · no trackers · <span id="keys-chars">0</span> glyphs/frame</span>
+</footer>
 
 <!-- ============================================================
      LIGHTBOX
      ============================================================ -->
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Artwork viewer" hidden>
   <div class="lb-shell">
-    <pre class="lb-edge lb-top" id="lb-top" aria-hidden="true"></pre>
-    <div class="lb-mid">
-      <pre class="lb-side" aria-hidden="true"></pre>
-      <figure class="lb-figure">
-        <img id="lb-img" alt="">
-        <figcaption>
-          <pre id="lb-title" class="lb-title"></pre>
-          <p id="lb-meta" class="lb-meta"></p>
-        </figcaption>
-      </figure>
-      <pre class="lb-side" aria-hidden="true"></pre>
-    </div>
-    <pre class="lb-edge lb-bot" id="lb-bot" aria-hidden="true"></pre>
+    <figure class="lb-fig">
+      <img id="lb-img" alt="">
+      <figcaption>
+        <span id="lb-title" class="lb-title"></span>
+        <span id="lb-meta" class="lb-meta"></span>
+      </figcaption>
+    </figure>
     <div class="lb-nav">
-      <button id="lb-prev" class="lb-btn" type="button">◄ prev</button>
-      <span class="lb-sep" aria-hidden="true">│</span>
+      <button id="lb-prev" class="lb-btn" type="button">◂ prev</button>
       <span id="lb-count" class="lb-count">01 / 08</span>
-      <span class="lb-sep" aria-hidden="true">│</span>
-      <button id="lb-next" class="lb-btn" type="button">next ►</button>
-      <span class="lb-sep" aria-hidden="true">│</span>
-      <button id="lb-close" class="lb-btn" type="button">[esc] close</button>
+      <button id="lb-next" class="lb-btn" type="button">next ▸</button>
+      <button id="lb-close" class="lb-btn lb-close" type="button">esc ✕</button>
     </div>
   </div>
 </div>
 
-<!-- ============================================================
-     KONAMI OVERLAY
-     ============================================================ -->
-<div class="konami" id="konami" hidden aria-hidden="true">
-  <pre id="konami-art" class="konami-art"></pre>
-  <p class="konami-cap" id="konami-cap"></p>
-</div>
-
 <script src="assets/js/font.js"></script>
 <script src="assets/js/content.js"></script>
-<script src="assets/js/mary-frames.js"></script>
-<script src="assets/js/mary.js"></script>
+<script src="assets/js/eyes.js"></script>
+<script src="assets/js/wall.js"></script>
+<script src="assets/js/deck.js"></script>
+<script src="assets/js/shell.js"></script>
 <script src="assets/js/main.js"></script>
 </body>
 </html>

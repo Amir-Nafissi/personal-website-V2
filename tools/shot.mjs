@@ -76,95 +76,121 @@ const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
 await send('Page.enable', {}, session);
 await send('Runtime.enable', {}, session);
 await send('Page.navigate', { url: URL_ }, session);
-await sleep(Number(process.argv[3] || 5000));
+await sleep(Number(process.argv[3] || 9000));
 
 /* ---- probes ------------------------------------------------- */
+const sleepJs = (ms) => `new Promise(r=>setTimeout(r,${ms}))`;
+
 const probe = await evaluate(`(() => {
   const q = (s) => document.querySelector(s);
+  const eyeRows = (q('.eye-line')||{textContent:''}).textContent.split(String.fromCharCode(10));
   return {
-    bootGone: !q('#boot'),
-    heroRole: (q('.hero-role')||{}).textContent,
-    heroTag: (q('.hero-tag span[data-tw]')||{}).textContent,
-    eduSub: (q('#education .sec-sub')||{}).textContent,
-    maryLines: (q('#mary-pre').textContent.match(/\\n/g)||[]).length + 1,
-    maryChars: q('#mary-pre').textContent.length,
-    maryInk: (q('#mary-pre').textContent.replace(/[ \\n]/g,'')).length,
-    eduBoxes: document.querySelectorAll('.edu-win').length,
-    eduFirstLine: (q('.edu-win')||{textContent:''}).textContent.split('\\n')[0],
-    projects: document.querySelectorAll('.proj-card').length,
-    projTitleRows: (q('.proj-title')||{textContent:''}).textContent.split('\\n').length,
-    galItems: document.querySelectorAll('.gal-item').length,
-    imgsLoaded: [...document.images].filter(i=>i.complete && i.naturalWidth>0).length,
-    imgsTotal: document.images.length,
-    skillFirst: (q('.skill-row')||{textContent:''}).textContent,
-    specsLines: (q('#specs').textContent.split('\\n').length),
-    docHeight: document.documentElement.scrollHeight
+    bootGone:  !q('#boot'),
+    stage:     document.documentElement.dataset.stage,
+    theme:     document.documentElement.dataset.theme,
+    eyeCols:   eyeRows[0] ? eyeRows[0].length : 0,
+    eyeRows:   eyeRows.length,
+    eyeInk:    (q('.eye-line').textContent + q('.eye-iris').textContent +
+                q('.eye-pupil').textContent).replace(/[^!-~]/g, '').length,
+    wallCells: window.Wall.cells(),
+    chips:     document.querySelectorAll('.chip').length,
+    motd:      (q('#term-out')||{textContent:''}).textContent.trim().slice(0, 40),
+    barTitle:  (q('#bar-title')||{}).textContent
   };
 })()`);
 console.log('PROBE', JSON.stringify(probe, null, 2));
 
-await shot('01-hero');
+await shot('01-shell');
 
-/* scroll through sections */
-for (const id of ['education', 'experience', 'projects', 'context', 'gallery']) {
-  await evaluate(`document.getElementById('${id}').scrollIntoView()`);
+/* the eyes alone, and gaze tracking */
+await evaluate(`(async () => {
+  document.documentElement.dataset.stage = 'eyes';
+  await ${sleepJs(1200)};
+})()`);
+await shot('02-eyes');
+
+const gaze = await evaluate(`(async () => {
+  const at = (x, y) => window.dispatchEvent(
+    new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+  const grab = () => document.querySelector('.eye-pupil').textContent;
+  at(60, 60);            await ${sleepJs(900)};  const a = grab();
+  at(innerWidth - 60, innerHeight - 60); await ${sleepJs(900)}; const b = grab();
+  document.documentElement.dataset.stage = 'shell';
+  return { tracks: a !== b };
+})()`);
+console.log('GAZE', JSON.stringify(gaze));
+await sleep(900);
+
+/* every section, through the shell */
+for (const cmd of ['education', 'work', 'projects', 'creations']) {
+  await evaluate(`window.Shell.run(${JSON.stringify(cmd)})`);
   await sleep(2600);
-  await shot('sec-' + id);
+  const st = await evaluate(`({
+    stage: document.documentElement.dataset.stage,
+    deck: window.Deck.current(),
+    cards: document.querySelectorAll('.card').length,
+    shown: document.querySelectorAll('.card.in').length
+  })`);
+  console.log('SECTION', cmd, JSON.stringify(st));
+  await shot('sec-' + cmd);
 }
 
-/* lightbox */
-await evaluate(`document.querySelectorAll('.gal-item')[0].click()`);
-await sleep(1200);
-await shot('lightbox');
-const lb = await evaluate(`(() => {
-  const l = document.querySelector('#lb');
-  return { open: !l.hidden, count: document.querySelector('#lb-count').textContent,
-           titleRows: document.querySelector('#lb-title').textContent.split('\\n').length,
-           imgOk: (()=>{const i=document.querySelector('#lb-img'); return i.complete && i.naturalWidth>0;})() };
+/* horizontal rail actually moves */
+const rail = await evaluate(`(async () => {
+  const r = document.querySelector('#rail');
+  const before = r.scrollLeft;
+  r.dispatchEvent(new WheelEvent('wheel', { deltaY: 600, bubbles: true, cancelable: true }));
+  await ${sleepJs(900)};
+  return { before, after: r.scrollLeft, max: r.scrollWidth - r.clientWidth };
 })()`);
-console.log('LIGHTBOX', JSON.stringify(lb));
+console.log('RAIL', JSON.stringify(rail));
+await shot('rail-scrolled');
+
+/* lightbox over a creation */
+await evaluate(`document.querySelectorAll('.card-figure')[0].click()`);
+await sleep(1100);
+await shot('lightbox');
+console.log('LIGHTBOX', await evaluate(`(() => {
+  const l = document.querySelector('#lb');
+  const i = document.querySelector('#lb-img');
+  return { open: !l.hidden, count: document.querySelector('#lb-count').textContent,
+           imgOk: i.complete && i.naturalWidth > 0 };
+})()`));
 await evaluate(`document.querySelector('#lb-close').click()`);
 
-/* konami */
-await evaluate(`(() => {
-  const seq=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
-  seq.forEach(k => document.dispatchEvent(new KeyboardEvent('keydown',{key:k,bubbles:true})));
-  return true;
-})()`);
-await sleep(1400);
-await shot('konami');
-const kn = await evaluate(`!document.querySelector('#konami').hidden`);
-console.log('KONAMI open:', kn);
-await evaluate(`document.querySelector('#konami').click()`);
+/* clear resets the terminal AND the deck */
+await evaluate(`window.Shell.run('clear')`);
+await sleep(1800);
+console.log('CLEAR', await evaluate(`({
+  stage: document.documentElement.dataset.stage,
+  deck: window.Deck.current(),
+  out: document.querySelector('#term-out').textContent.trim().length
+})`));
+await shot('cleared');
 
-/* command bar */
-await evaluate(`(() => {
-  const i = document.querySelector('#cmd-input');
-  i.value = 'goto projects';
-  i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
-  return true;
-})()`);
-await sleep(900);
-console.log('CMD OUT:', await evaluate(`document.querySelector('#cmd-out').textContent`));
+/* neofetch + the other themes */
+await evaluate(`window.Shell.run('neofetch')`);
+await sleep(2200);
+await shot('neofetch');
 
-/* amber theme + background pose advance */
-await evaluate(`document.querySelector('#btn-theme').click(); window.MaryBG.next();`);
-await evaluate(`document.getElementById('home').scrollIntoView()`);
-await sleep(3000);
-await shot('amber');
+for (const t of ['gruvbox', 'tokyo']) {
+  await evaluate(`window.Shell.run('theme ${t}')`);
+  await sleep(1400);
+  await shot('theme-' + t);
+}
+await evaluate(`window.Shell.run('theme mocha')`);
+await sleep(1000);
 
 /* mobile */
 await send('Emulation.setDeviceMetricsOverride', {
   width: 390, height: 844, deviceScaleFactor: 2, mobile: true
 }, session);
-await evaluate(`document.querySelector('#btn-theme').click(); window.dispatchEvent(new Event('resize'))`);
-await sleep(2500);
-await evaluate(`document.getElementById('education').scrollIntoView()`);
-await sleep(1500);
-await shot('mobile-edu');
-await evaluate(`document.getElementById('home').scrollIntoView()`);
-await sleep(1200);
-await shot('mobile-hero');
+await evaluate(`window.dispatchEvent(new Event('resize'))`);
+await sleep(1600);
+await shot('mobile-shell');
+await evaluate(`window.Shell.run('work')`);
+await sleep(2600);
+await shot('mobile-work');
 
 console.log('CONSOLE:', logs.length ? logs.join('\n') : '(clean)');
 
