@@ -313,27 +313,47 @@
       }, 28);
     }
 
-    /* lash fan at the outer corner */
-    ctx.fillStyle = paint(1.0, MAT.LINE);
-    var lashes = [
-      [0.00, 0.40, 0.13],
-      [0.06, 0.34, 0.24],
-      [0.14, 0.24, 0.29]
-    ];
-    for (k = 0; k < lashes.length; k++) {
-      var t0 = lashes[k][0];
-      var p0 = bezP(upper, t0);
-      var dx = -s * lashes[k][1] * hw, dy = -lashes[k][2] * hh;
-      var lp = [
-        [p0[0], p0[1]],
-        [p0[0] + dx * 0.32, p0[1] + dy * 0.44],
-        [p0[0] + dx * 0.72, p0[1] + dy * 0.86],
-        [p0[0] + dx, p0[1] + dy]
-      ];
-      ribbon(ctx, lp, function (t) {
-        return hh * 0.115 * Math.pow(1 - t, 1.5);
-      }, 20);
+    /* Lash fans. Each entry is [t along the lid, reach in hw,
+       rise in hh]; `sign` flips the rise so the same table draws
+       the lower set. Strands are graduated — longest and flattest
+       at the outer corner, shorter and steeper along the lid. */
+    function fan(curve, list, thick, sign) {
+      var j, q, ddx, ddy, lp;
+      for (j = 0; j < list.length; j++) {
+        q = bezP(curve, list[j][0]);
+        ddx = -s * list[j][1] * hw;
+        ddy = sign * list[j][2] * hh;
+        lp = [
+          [q[0], q[1]],
+          [q[0] + ddx * 0.32, q[1] + ddy * 0.44],
+          [q[0] + ddx * 0.72, q[1] + ddy * 0.86],
+          [q[0] + ddx, q[1] + ddy]
+        ];
+        ribbon(ctx, lp, function (t) {
+          return hh * thick * Math.pow(1 - t, 1.5);
+        }, 20);
+      }
     }
+
+    ctx.fillStyle = paint(1.0, MAT.LINE);
+    /* Each strand roots inside the liner, so only the part that
+       clears it is visible — they need real reach or the fan just
+       thickens the lid. */
+    fan(upper, [
+      [0.000, 0.52, 0.11],
+      [0.045, 0.47, 0.24],
+      [0.100, 0.40, 0.33],
+      [0.165, 0.32, 0.38],
+      [0.245, 0.23, 0.38],
+      [0.335, 0.14, 0.33]
+    ], 0.105, -1);
+
+    /* a couple under the outer end of the lower lid */
+    ctx.fillStyle = paint(0.88, MAT.LINE);
+    fan(lower, [
+      [0.050, 0.28, 0.17],
+      [0.135, 0.20, 0.21]
+    ], 0.082, 1);
 
     /* tear duct at the inner corner */
     ctx.fillStyle = paint(0.55, MAT.LINE);
