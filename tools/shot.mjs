@@ -1,13 +1,28 @@
 /* Tiny CDP driver: real-time screenshots + JS probes.
    Usage: node tools/shot.mjs <outDir> [waitMs]                  */
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const OUT = process.argv[2];
 const PORT = 9333;
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const URL_ = 'file:///C:/Users/amirn/Downloads/ascii-website/index.html';
+/* Chrome lives somewhere different on every machine, so look for
+   it rather than pinning it: $CHROME wins, then the first of the
+   usual paths that exists. */
+const CHROME = process.env.CHROME || [
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+].find((p) => existsSync(p));
+if (!CHROME) {
+  console.error('no chrome found — set CHROME=/path/to/chrome');
+  process.exit(1);
+}
+/* The site is the repo this tool lives in; $SITE_URL overrides. */
+const URL_ = process.env.SITE_URL || new URL('../index.html', import.meta.url).href;
 const PROFILE = OUT + '/.chrome';
 
 mkdirSync(OUT, { recursive: true });

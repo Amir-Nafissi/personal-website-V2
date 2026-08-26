@@ -47,8 +47,11 @@ settles CSS transitions, so a virtual-time screenshot shows the stage machine,
 the typewriter and the card entry as broken when they are fine. Use the CDP
 harnesses, never `chrome --screenshot`.
 
-Both tools hardcode the Chrome path as a constant at the top — edit if the
-machine changes. Treat any non-`(clean)` console output as a failure.
+Both tools find Chrome themselves — `$CHROME`, else the first of the usual
+Linux/macOS/Windows paths that exists — and `shot.mjs` loads the `index.html`
+next to it unless `$SITE_URL` says otherwise. On Node 20 they need
+`node --experimental-websocket`; `WebSocket` is a global from Node 22 on.
+Treat any non-`(clean)` console output as a failure.
 
 ## Architecture
 
