@@ -372,6 +372,10 @@
       var cells = eyes.cols() * eyes.rows() + window.Wall.cells();
       $('#keys-chars').textContent = cells.toLocaleString();
 
+      /* The eyes mount shut and fade up closed; give them a beat to
+         appear, then open. (reveal() is a no-op under reduced motion.) */
+      setTimeout(function () { eyes.reveal(); }, REDUCED ? 0 : 620);
+
       /* Hold on the eyes alone, then let the terminal in. Any
          click or keypress takes the shortcut. */
       var opened = false;

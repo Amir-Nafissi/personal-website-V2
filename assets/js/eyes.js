@@ -451,9 +451,12 @@
     var W = 0, H = 0;
 
     /* animation state */
+    /* The eye boots SHUT and opens once (see .reveal / blink phase 3).
+       A reduced-motion viewer skips the intro and starts open. */
     var st = {
       gx: 0, gy: 0, tgx: 0, tgy: 0,
-      blink: 0, blinkPh: -1, blinkT: 0, winkSide: -1,
+      blink: REDUCED ? 0 : 1, blinkPh: -1, blinkT: 0, winkSide: -1,
+      intro: !REDUCED,
       nextBlink: 1400 + Math.random() * 2600,
       phase: 0, open: 0
     };
@@ -665,8 +668,22 @@
          the half-lidded resting lid, not a startle. */
       if (!REDUCED) {
         if (st.blinkPh < 0) {
-          st.nextBlink -= step;
-          if (st.nextBlink <= 0) { st.blinkPh = 0; st.blinkT = 0; }
+          /* Hold shut until .reveal() fires the intro; auto-blinks are
+             suspended while the eye is still closed. */
+          if (!st.intro) {
+            st.nextBlink -= step;
+            if (st.nextBlink <= 0) { st.blinkPh = 0; st.blinkT = 0; }
+          }
+        } else if (st.blinkPh === 3) {
+          /* Intro open: the same lid travel as a blink but slower and
+             eased out, so the eye lifts open once rather than snapping. */
+          st.blinkT += step;
+          var it = clamp(st.blinkT / 620, 0, 1);
+          st.blink = 1 - it * (2 - it);
+          if (st.blinkT >= 620) {
+            st.blinkPh = -1; st.blink = 0;
+            st.nextBlink = 1600 + Math.random() * 3200;
+          }
         } else {
           st.blinkT += step;
           if (st.blinkPh === 0) {
@@ -732,6 +749,13 @@
       rows: function () { return rows; },
       look: function (x, y) { mouse.x = x; mouse.y = y; mouse.has = true; idleT = 0; },
       setGaze: function (x, y) { st.tgx = clamp(x, -1, 1); st.tgy = clamp(y, -1, 1); mouse.has = false; },
+      reveal: function () {
+        /* Play the one-time opening: eye goes from shut to its resting
+           open. No-op once done, or for a reduced-motion viewer. */
+        if (!st.intro) return;
+        st.intro = false;
+        st.blinkPh = 3; st.blinkT = 0; st.blink = 1; st.winkSide = -1;
+      },
       blink: function () { if (st.blinkPh < 0) { st.blinkPh = 0; st.blinkT = 0; st.winkSide = -1; } },
       wink: function (side) { if (st.blinkPh < 0) { st.blinkPh = 0; st.blinkT = 0; st.winkSide = side; } },
       resize: function () { layout(); sig = ''; render(); },
