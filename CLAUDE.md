@@ -143,6 +143,37 @@ glyph ramp. Things that will bite you:
   directions. Lower `rest` and the `b *` factor has to rise or the lids never
   meet; raise `rest` and it has to fall or the upper curve crosses under the
   lower one mid-blink. `shot.mjs` captures a mid-blink frame for exactly this.
+- **The pair sit on a head, and the head turns** (the `THE HEAD` block in
+  `render()`). The gaze is split: the head takes ~42% of it and the eyeballs
+  cover the rest, so the irises no longer slam into the corners. Yaw rotates
+  two points at `+/-gap` about an axis `FWD` behind them and a weak perspective
+  projects the result — the separation foreshortens, the face slides toward the
+  look, and the eye swinging away lands smaller than the one swinging toward.
+  `DEPTH` is deliberately ~7 rather than a head's true ~18: honest perspective
+  puts 2% between the two eyes and 2% here is a third of a cell.
+  **With the gaze centred every term collapses to 0 or 1** and the geometry is
+  bit-for-bit what it was before the head existed — which is what keeps
+  `shot.mjs`'s centred symmetry check meaningful. Keep it that way.
+- **A lash is a rod OUT of the face plane, so it does not take the face
+  plane's foreshortening.** `fan()` scales reach by the eye's `hw`, which
+  already carries `cos(yaw)`, so the per-eye `lash` factor divides that back
+  out before applying the lash's own angle. Left doubled up, the two cancel
+  and the lashes look pinned at one size through the whole turn. Only the
+  outward REACH turns: the rise is vertical and the ribbon width is across
+  the strand, so neither is touched.
+- **The flick sweeps out and BACK toward the temple** — `cos(SPLAY + sgn*yaw)`,
+  not `-`. So the eye turning away from the viewer has its lashes swing away
+  with it and shorten, while the near eye's come round toward the silhouette
+  and lengthen. Sweeping them forward inverts both and reads as plainly wrong:
+  the eye turning away cannot be the one growing lashes. Looking left, the
+  LEFT eye's lashes shrink and the RIGHT eye's grow.
+- The face's slide is bounded by the canvas, not by taste: `gap` (1.32hw) plus
+  the 1.64hw lash flick already fills a 3.01hw half-width, so the slide has to
+  stay inside what foreshortening the separation gives back. `FWD` 0.42 does at
+  every angle; raise it and the outer lashes crop.
+- `.setGaze()` sets a `manual` flag. Without it `setTargetFromMouse()` — which
+  runs every frame — zeroes the target on the next one and the call does
+  nothing. Any real pointer event clears the flag and takes back over.
 - `s` mirrors the eye's **shape** only. It must never be applied to the gaze
   (the eyes would track outward instead of at the cursor) nor to the specular
   highlights (one light in the room strikes both eyes from the same side;

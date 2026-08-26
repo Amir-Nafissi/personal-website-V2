@@ -172,8 +172,13 @@
     /* `rest` is a permanent partial lid: the eye sits half-closed
        rather than wide open, which is what reads as relaxed
        instead of startled. */
+    /* The lid rides with the eye: looking down lowers it, looking
+       up opens it. The up term is scaled out by the blink, or a
+       blink caught mid-glance-up would never quite meet the lower
+       lid. */
     var drop = b * 1.34 + (e.rest == null ? 0.11 : e.rest)
-             + Math.max(0, e.gy) * 0.09;
+             + Math.max(0, e.gy) * 0.09
+             - Math.max(0, -e.gy) * 0.05 * (1 - b);
     var rise = b * 0.18;
 
     /* The corners sit nearly level. A big lift on the outer corner
@@ -267,6 +272,15 @@
     var R = hh * 0.74;
     var ix = cx + e.gx * hw * 0.34;
     var iy = cy + e.gy * hh * 0.26 - hh * 0.06;
+
+    /* Everything wet is on the eyeball, so it all takes the same
+       foreshortening: squash about the iris centre and the disc,
+       the ring, the striations, the pupil and the speculars all
+       turn with it. Restored with the clip at the end of the
+       block. */
+    ctx.translate(ix, iy);
+    ctx.scale(e.sqx == null ? 1 : e.sqx, e.sqy == null ? 1 : e.sqy);
+    ctx.translate(-ix, -iy);
 
     var g = ctx.createLinearGradient(0, iy - R, 0, iy + R);
     g.addColorStop(0.00, paint(0.13, MAT.IRIS));
@@ -363,7 +377,14 @@
       var j, q, ddx, ddy, lp;
       for (j = 0; j < list.length; j++) {
         q = bezP(curve, list[j][0]);
-        ddx = -s * list[j][1] * hw;
+        /* Lash REACH is foreshortened by `lash`, not just by hw.
+           A lash does not lie in the face plane: it sweeps out from
+           the corner and forward, so a turn swings one eye's set
+           toward the viewer (they shorten) and the other's around
+           toward the profile (they lengthen). Only the outward
+           reach turns — the rise is vertical, and the thickness is
+           across the strand. */
+        ddx = -s * list[j][1] * hw * (e.lash == null ? 1 : e.lash);
         ddy = sign * list[j][2] * hh;
         lp = [
           [q[0], q[1]],
@@ -456,6 +477,7 @@
     var st = {
       gx: 0, gy: 0, tgx: 0, tgy: 0,
       blink: REDUCED ? 0 : 1, blinkPh: -1, blinkT: 0, winkSide: -1,
+      manual: false,
       intro: !REDUCED,
       nextBlink: 1400 + Math.random() * 2600,
       phase: 0, open: 0
@@ -522,14 +544,86 @@
       if (st.winkSide === 0) bw = 0;
       if (st.winkSide === 1) bl = 0;
 
-      drawEye(ctx, {
-        s: 1, cx: W * 0.5 - gap, cy: cy, hw: hw, hh: hh, cellH: H / rows,
-        gx: st.gx, gy: st.gy, blink: bl, phase: 0, brow: opts.brow, rest: opts.rest
-      });
-      drawEye(ctx, {
-        s: -1, cx: W * 0.5 + gap, cy: cy, hw: hw, hh: hh, cellH: H / rows,
-        gx: st.gx, gy: st.gy, blink: bw, phase: 17, brow: opts.brow, rest: opts.rest
-      });
+      /* ---- THE HEAD -------------------------------------------
+         Two eyes that only slide their irises read as a mask on a
+         wall. A head that TURNS toward the cursor reads as a face,
+         so the gaze is split: the head takes some of it and the
+         eyes only cover the rest.
+
+         The pair are two points at x = +/-gap sitting FWD in front
+         of the axis the head turns about. Yaw rotates them about
+         that axis; a weak perspective projects the result. Every
+         cue that sells it falls out of that one rotation — the
+         separation foreshortens, the whole face slides toward the
+         look, and the eye swinging away from the viewer sits a
+         little smaller than the one swinging toward it.
+
+         With the gaze centred every term below is 0 or 1 and the
+         geometry is exactly what it was before the head existed. */
+      var yaw = st.gx * 0.40, pitch = st.gy * 0.24;
+      var cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
+      /* Both in units of gap. DEPTH is far short of a real head's
+         ~18: honest perspective puts 2% between the two eyes, and
+         2% of this drawing is a third of a character cell — it
+         simply is not there on a grid this coarse. */
+      var FWD = 0.42, DEPTH = 7;
+      /* How far out of the face plane the lashes sweep, in radians.
+         With yaw capped at 0.40 this keeps SPLAY +/- yaw well short
+         of a right angle, where the reach would collapse and then
+         flip sign. */
+      var SPLAY = 0.80;
+      var faceX = gap * FWD * syaw;
+      var faceY = hh * 0.90 * Math.sin(pitch);
+      /* The canvas is cut so the outer lash JUST clears it: gap at
+         1.32hw plus a 1.64hw flick against a 3.01hw half-width.
+         So the slide has to stay within what the foreshortening of
+         the separation hands back — FWD 0.42 does at every angle.
+         Raise it and the outer lashes crop at full yaw. */
+
+      /* What is left for the eyeballs once the head has taken its
+         share. Both eyes turn by the same remainder, because both
+         are pointed at the same cursor. */
+      var HEAD = 0.42;
+      var egx = st.gx * (1 - HEAD), egy = st.gy * (1 - HEAD * 0.5);
+
+      function place(sgn, s, blink, phase) {
+        /* +ez is nearer the viewer */
+        var ez = -sgn * gap * syaw;
+        var k = 1 + ez / (gap * DEPTH);
+        return {
+          s: s,
+          cx: W * 0.5 + sgn * gap * cyaw + faceX,
+          cy: cy + faceY,
+          /* The opening lies in the face plane, so it foreshortens
+             with the turn and takes the perspective scale as well. */
+          hw: hw * cyaw * k,
+          hh: hh * Math.cos(pitch) * k,
+          cellH: H / rows,
+          gx: egx, gy: egy,
+          /* The iris is a disc on a sphere: pointed off-axis it
+             presents at an angle and projects as an ellipse. */
+          sqx: Math.cos(st.gx * 0.55), sqy: Math.cos(st.gy * 0.34),
+          /* The lash flick leaves the outer corner sweeping out AND
+             BACK toward the temple, so the turn swings the far
+             eye's set away from the viewer — it shortens — while
+             the near eye's comes round toward the silhouette and
+             lengthens. Sweeping them forward instead flips both and
+             reads as wrong: the eye turning away from you cannot
+             be the one growing lashes.
+
+             Divided by cyaw because `fan` scales the reach by the
+             eye's hw, which already carries the face plane's own
+             foreshortening — and a lash is a rod OUT of that plane,
+             not a feature in it. Left doubled up, the two cancel
+             and the lashes look pinned at one size all through the
+             turn. */
+          lash: Math.max(0.2, Math.cos(SPLAY + sgn * yaw) / Math.cos(SPLAY) / cyaw),
+          blink: blink, phase: phase, brow: opts.brow, rest: opts.rest
+        };
+      }
+
+      drawEye(ctx, place(-1, 1, bl, 0));
+      drawEye(ctx, place(1, -1, bw, 17));
 
       var img = ctx.getImageData(0, 0, W, H).data;
       var cellW = ss, cellH = H / rows;
@@ -618,6 +712,10 @@
 
     /* ---- gaze ------------------------------------------------ */
     function setTargetFromMouse() {
+      /* A manual .setGaze holds until a real pointer turns up. This
+         runs every frame, so without the flag it would zero the
+         target on the very next one and setGaze would do nothing. */
+      if (st.manual) return;
       if (!mouse.has) { st.tgx = 0; st.tgy = 0; return; }
       var r = host.getBoundingClientRect();
       var ex = r.left + r.width * 0.5;
@@ -719,12 +817,13 @@
 
     /* ---- listeners ------------------------------------------ */
     function onMove(e) {
-      mouse.x = e.clientX; mouse.y = e.clientY; mouse.has = true; idleT = 0;
+      mouse.x = e.clientX; mouse.y = e.clientY; mouse.has = true;
+      st.manual = false; idleT = 0;
     }
     function onTouch(e) {
       if (!e.touches || !e.touches.length) return;
       mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY;
-      mouse.has = true; idleT = 0;
+      mouse.has = true; st.manual = false; idleT = 0;
     }
     function onLeave() { mouse.has = false; }
     var ro = null;
@@ -747,8 +846,11 @@
       canvas: cv,
       cols: function () { return cols; },
       rows: function () { return rows; },
-      look: function (x, y) { mouse.x = x; mouse.y = y; mouse.has = true; idleT = 0; },
-      setGaze: function (x, y) { st.tgx = clamp(x, -1, 1); st.tgy = clamp(y, -1, 1); mouse.has = false; },
+      look: function (x, y) { mouse.x = x; mouse.y = y; mouse.has = true; st.manual = false; idleT = 0; },
+      setGaze: function (x, y) {
+        st.tgx = clamp(x, -1, 1); st.tgy = clamp(y, -1, 1);
+        mouse.has = false; st.manual = true;
+      },
       reveal: function () {
         /* Play the one-time opening: eye goes from shut to its resting
            open. No-op once done, or for a reduced-motion viewer. */
